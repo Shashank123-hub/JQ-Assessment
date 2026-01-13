@@ -116,23 +116,6 @@
       color:#1b3f3a;
     }
 
-    .email-block {
-      margin-top: 1.0rem;
-      margin-bottom: 1.0rem;
-      padding: 0.75rem 0.9rem;
-      background: #fff7f3;
-      border-left: 4px solid var(--cq-orange);
-      border-radius: 8px;
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 0.6rem 1rem;
-      font-size: 0.9rem;
-    }
-
-    .email-block strong { font-weight: 700; min-width: 120px; }
-    .email-block span { word-break: break-all; }
-
     .progress-wrap { display: grid; gap: 0.5rem; margin: 0.8rem 0 1.0rem 0; }
 
     .progress-top {
@@ -280,7 +263,9 @@
     @media print {
       body { padding: 0; background: #ffffff; }
       .assessment-wrapper { box-shadow: none; border-radius: 0; max-width: none; }
-      .intro-screen, .actions, .results-ctas { display: none; }
+      .intro-screen { display: none !important; }
+      .results-ctas { display: none !important; }
+      .actions { display: none !important; }
     }
 
     @media (max-width: 768px) {
@@ -342,6 +327,16 @@
     </div>
 
     <div id="assessment-screen" style="display:none;">
+
+      <!-- Progress bar: entire assessment -->
+      <div class="progress-wrap">
+        <div class="progress-top">
+          <div class="progress-scenario" id="progressScenario">Progress</div>
+          <div class="progress-count" id="progressCount">Question 1 of 19</div>
+        </div>
+        <div class="progress-bar"><div id="progressBarFill"></div></div>
+      </div>
+
       <div class="scenario-card" id="scenarioCard" style="display:none;">
         <div class="scenario-header" id="scenarioTitle">Scenario</div>
         <div class="scenario-body">
@@ -350,19 +345,8 @@
         </div>
       </div>
 
-      <div class="email-block">
-        <strong>Email:</strong>
-        <span id="emailSummaryText"></span>
-        <input type="hidden" id="userEmail" />
-      </div>
-
-      <div class="progress-wrap">
-        <div class="progress-top">
-          <div class="progress-scenario" id="progressScenario">Scenario</div>
-          <div class="progress-count" id="progressCount">Question 1 of 19</div>
-        </div>
-        <div class="progress-bar"><div id="progressBarFill"></div></div>
-      </div>
+      <!-- Hidden email only (no mid-page email display) -->
+      <input type="hidden" id="userEmail" />
 
       <div class="question-card">
         <div class="question-header" id="questionHeader">Question</div>
@@ -409,22 +393,35 @@
         <input type="hidden" name="band" id="formBand">
 
         <input type="hidden" name="confidence_calibration" id="formConfidenceCalibration">
-        <!-- <input type="hidden" name="answers_json" id="formAnswersJson"> -->
+
+        <!-- Timing -->
+        <input type="hidden" name="start_ms" id="formStartMs">
+        <input type="hidden" name="end_ms" id="formEndMs">
+        <input type="hidden" name="duration_sec" id="formDurationSec">
       </form>
 
-      <div class="results" id="results" style="display:none;">
-        <h2>Completion</h2>
+      <!-- Distinct completion screen -->
+      <div class="results" id="completedScreen" style="display:none;">
+        <h2>Completed</h2>
         <p class="completion-text">
-          Thank you for completing the JQ Assessment. Your responses will be used to build a Judgment Proficiency Profile reflecting how reliably you exercise judgment across different conditions.
+          Thank you for completing the JQ Assessment. Your responses have been recorded.
         </p>
+        <div class="actions">
+          <button class="btn-primary" type="button" onclick="showResults()">See Results</button>
+        </div>
+      </div>
 
-        <h2>JQ Proficiency Profile</h2>
+      <!-- Results report -->
+      <div class="results" id="results" style="display:none;">
+        <h2>Your JQ Proficiency Profile</h2>
+
         <div id="dimensionResults" class="results-grid"></div>
+
         <p id="bandText" style="margin:0.2rem 0 0.6rem 0;"></p>
         <div id="bandInterpretation"></div>
 
         <div class="scoring-guide">
-          <strong>Banding:</strong>
+          <strong>JQ Proficiency Bands:</strong>
           <ul>
             <li><strong>Band 1</strong> - Fragile (Avg &lt; 2.0 OR any dimension &lt; 1.8)</li>
             <li><strong>Band 2</strong> - Situational (Avg 2.0–2.9 AND Stability ≥ 2.0)</li>
@@ -446,7 +443,6 @@
         </div>
 
         <div class="actions" style="margin-top: 1rem;">
-          <button class="btn-secondary" type="button" onclick="restartAssessment()">Restart</button>
           <button class="btn-primary" type="button" onclick="printPage()">Print / Save PDF</button>
         </div>
       </div>
@@ -454,7 +450,7 @@
   </div>
 
   <script>
-    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbweuH5MCsTTrd_9ishmDPhYzIk2-uli0byVmzo54V-3t11wkNqk5hktbWeMRHUUfGpIag/exec";
+    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx_Qf5YWto7uI32dGWXqkhHfkg4BLmBWeE19n2UXTwXlb_hDzPuGDXn39AsUYbCnnZ7Ig/exec";
 
     const DIM_LABEL = {
       DF: "Decision Framing",
@@ -468,6 +464,12 @@
     let assessmentEmail = "";
     let currentIndex = 0;
     const answers = {};
+
+    // Timing
+    let assessmentStartMs = null;
+
+    // Completion -> results handoff
+    let lastComputedResults = null;
 
     const questionnaire = [
       {
@@ -783,9 +785,9 @@
       if (!validateEmail(email)) { alert("Please enter a valid email address (e.g., name@example.com)."); emailInput.focus(); return; }
 
       assessmentEmail = email;
+      assessmentStartMs = Date.now();
 
       document.getElementById("userEmail").value = email;
-      document.getElementById("emailSummaryText").textContent = email;
 
       const startForm = document.getElementById("startNowForm");
       document.getElementById("startNowHiddenEmail").value = email;
@@ -804,6 +806,7 @@
 
     function renderCurrent() {
       document.getElementById("results").style.display = "none";
+      document.getElementById("completedScreen").style.display = "none";
 
       const item = flat[currentIndex];
       const scenario = item.scenario;
@@ -813,7 +816,6 @@
       scenarioCard.style.display = "block";
       document.getElementById("scenarioTitle").textContent = scenario.title;
 
-      // Subtitle: show if present, otherwise hide cleanly
       const subtitleEl = document.getElementById("scenarioSubtitle");
       if (scenario.subtitle) {
         subtitleEl.textContent = scenario.subtitle;
@@ -825,12 +827,11 @@
 
       document.getElementById("scenarioContext").textContent = scenario.context;
 
-      document.getElementById("progressScenario").textContent = scenario.title;
+      document.getElementById("progressScenario").textContent = "Progress";
       document.getElementById("progressCount").textContent = `Question ${currentIndex + 1} of ${flat.length}`;
       const pct = Math.round(((currentIndex) / (flat.length - 1)) * 100);
       document.getElementById("progressBarFill").style.width = `${pct}%`;
 
-      // Header shows actual question prompt
       document.getElementById("questionHeader").textContent = q.prompt;
       document.getElementById("questionPrompt").textContent = "";
       document.getElementById("questionPrompt").style.display = "none";
@@ -960,7 +961,6 @@
       const meta = currentAnswer.meta || {};
       const rankState = meta.rank || {}; // { optId: 1|2|3 }
 
-      // Keep refs to selects so we can update options dynamically
       const selectRefs = {}; // optId -> selectEl
 
       function buildOptionsHtml(currentVal, usedValsSet) {
@@ -978,7 +978,6 @@
       }
 
       function updateAllDropdowns() {
-        // Collect current selections
         const picked = {};
         remaining.forEach(opt => {
           const v = rankState[opt.id];
@@ -989,7 +988,6 @@
           const sel = selectRefs[opt.id];
           if (!sel) return;
 
-          // used values = selections of all OTHER dropdowns
           const used = new Set();
           remaining.forEach(other => {
             if (other.id === opt.id) return;
@@ -1025,13 +1023,11 @@
         sel.addEventListener("change", () => {
           const val = sel.value ? parseInt(sel.value, 10) : null;
 
-          // Update stored state
           rankState[opt.id] = val;
           meta.rank = rankState;
           currentAnswer.meta = meta;
           answers[q.id] = currentAnswer;
 
-          // Recompute dropdown options so duplicates disappear
           updateAllDropdowns();
         });
 
@@ -1040,7 +1036,6 @@
         grid.appendChild(row);
       });
 
-      // Enforce uniqueness immediately
       updateAllDropdowns();
     }
 
@@ -1113,8 +1108,38 @@
 
       const calibration = (answers["q19"] && answers["q19"].meta) ? answers["q19"].meta.selectedLikert : null;
 
-      renderResults(dimScores, stability, coreAvg, band);
+      // Submit first so it always records
       submitToAppsScript(email, dimScores, stability, coreAvg, band, calibration, answers);
+
+      // Show Completed screen first; results behind a button
+      showCompleted(dimScores, stability, coreAvg, band);
+    }
+
+    function showCompleted(dimScores, stability, coreAvg, band) {
+      lastComputedResults = { dimScores, stability, coreAvg, band };
+      document.getElementById("results").style.display = "none";
+      document.getElementById("completedScreen").style.display = "block";
+
+      // Disable nav buttons
+      document.getElementById("btnPrev").disabled = true;
+      document.getElementById("btnNext").disabled = true;
+      document.getElementById("btnPrev").classList.add("btn-disabled");
+      document.getElementById("btnNext").classList.add("btn-disabled");
+      document.getElementById("btnNext").textContent = "Completed";
+
+      const wrapper = document.querySelector(".assessment-wrapper");
+      window.scrollTo({ top: wrapper.offsetTop, behavior: "smooth" });
+    }
+
+    function showResults() {
+      if (!lastComputedResults) return;
+      document.getElementById("completedScreen").style.display = "none";
+      renderResults(
+        lastComputedResults.dimScores,
+        lastComputedResults.stability,
+        lastComputedResults.coreAvg,
+        lastComputedResults.band
+      );
     }
 
     function renderResults(dimScores, stability, coreAvg, band) {
@@ -1141,16 +1166,12 @@
         grid.appendChild(div);
       });
 
-      bandText.innerHTML = `<strong>Band Placement:</strong> Band ${band} - ${bandName(band)} ${bandBadge(band)}`;
+      // Band placement: green badge only
+      bandText.innerHTML = `<span class="badge badge-high">Band ${band}</span>`;
+
       interp.innerHTML = bandInterpretation(band, dimScores, stability);
 
       results.style.display = "block";
-
-      document.getElementById("btnPrev").disabled = true;
-      document.getElementById("btnNext").disabled = true;
-      document.getElementById("btnPrev").classList.add("btn-disabled");
-      document.getElementById("btnNext").classList.add("btn-disabled");
-      document.getElementById("btnNext").textContent = "Completed";
 
       const wrapper = document.querySelector(".assessment-wrapper");
       window.scrollTo({ top: wrapper.offsetTop, behavior: "smooth" });
@@ -1173,7 +1194,17 @@
       document.getElementById("formBand").value = `Band ${band}`;
       document.getElementById("formConfidenceCalibration").value = (calibration === null || calibration === undefined) ? "" : String(calibration);
 
-      //document.getElementById("formAnswersJson").value = JSON.stringify(answersObj || {});
+      // Timing
+      const endMs = Date.now();
+      document.getElementById("formStartMs").value = assessmentStartMs ? String(assessmentStartMs) : "";
+      document.getElementById("formEndMs").value = String(endMs);
+      document.getElementById("formDurationSec").value =
+        assessmentStartMs ? String(Math.round((endMs - assessmentStartMs) / 1000)) : "";
+
+      // (answers_json is intentionally not sent; if you add it later, guard it)
+      const aj = document.getElementById("formAnswersJson");
+      if (aj) aj.value = JSON.stringify(answersObj || {});
+
       form.submit();
     }
 
@@ -1204,34 +1235,23 @@
       }
     }
 
-    function bandBadge(band) {
-      if (band <= 2) return `<span class="badge badge-low">Lower reliability</span>`;
-      if (band === 3) return `<span class="badge badge-mid">Stable baseline</span>`;
-      return `<span class="badge badge-high">High reliability</span>`;
-    }
-
     function bandInterpretation(band, dimScores, stability) {
       const lows = lowestDimensions(dimScores, 2);
       const lowText = lows.map(x => `${x.label} (${format1(x.value)})`).join(", ");
 
       if (band === 1) {
-        return `<p><span class="score-risk">Pattern:</span> Fragile reliability. Under pressure, judgment may become reactive or inconsistent. The fastest improvement comes from strengthening: <strong>${lowText}</strong>.</p>
-                <p class="note">Judgment Stability (stress signal): <strong>${format1(stability)}</strong>.</p>`;
+        return `<p><span class="score-risk">Pattern:</span> Fragile reliability. Under pressure, judgment may become reactive or inconsistent. The fastest improvement comes from strengthening: <strong>${lowText}</strong>.</p>`;
       }
       if (band === 2) {
-        return `<p><span class="score-watch">Pattern:</span> Situational reliability. You show pockets of strong judgment, but it is not yet stable across contexts. Most leverage comes from improving: <strong>${lowText}</strong>.</p>
-                <p class="note">Judgment Stability (stress signal): <strong>${format1(stability)}</strong>.</p>`;
+        return `<p><span class="score-watch">Pattern:</span> Situational reliability. You show pockets of strong judgment, but it is not yet stable across contexts. Most leverage comes from improving: <strong>${lowText}</strong>.</p>`;
       }
       if (band === 3) {
-        return `<p><span class="score-strong">Pattern:</span> Functional reliability. Judgment is generally usable and steady. To scale your decision impact, strengthen: <strong>${lowText}</strong>.</p>
-                <p class="note">Judgment Stability (stress signal): <strong>${format1(stability)}</strong>.</p>`;
+        return `<p><span class="score-strong">Pattern:</span> Functional reliability. Judgment is generally usable and steady. To scale your decision impact, strengthen: <strong>${lowText}</strong>.</p>`;
       }
       if (band === 4) {
-        return `<p><span class="score-strong">Pattern:</span> Advanced reliability. You sustain disciplined judgment in ambiguity and stress. Next gains are edge-case stability and faster instinct testing. Watch: <strong>${lowText}</strong>.</p>
-                <p class="note">Judgment Stability (stress signal): <strong>${format1(stability)}</strong>.</p>`;
+        return `<p><span class="score-strong">Pattern:</span> Advanced reliability. You sustain disciplined judgment in ambiguity and stress. Next gains are edge-case stability and faster instinct testing. Watch: <strong>${lowText}</strong>.</p>`;
       }
-      return `<p><span class="score-strong">Pattern:</span> Expert reliability. Judgment remains disciplined even under stress and ambiguity. Maintain your floor by monitoring: <strong>${lowText}</strong>.</p>
-              <p class="note">Judgment Stability (stress signal): <strong>${format1(stability)}</strong>.</p>`;
+      return `<p><span class="score-strong">Pattern:</span> Expert reliability. Judgment remains disciplined even under stress and ambiguity. Maintain your floor by monitoring: <strong>${lowText}</strong>.</p>`;
     }
 
     function lowestDimensions(dimScores, n) {
@@ -1293,19 +1313,6 @@
     }
 
     function printPage() { window.print(); }
-
-    function restartAssessment() {
-      Object.keys(answers).forEach(k => delete answers[k]);
-      currentIndex = 0;
-
-      document.getElementById("btnPrev").disabled = false;
-      document.getElementById("btnNext").disabled = true;
-      document.getElementById("btnPrev").classList.remove("btn-disabled");
-      document.getElementById("btnNext").classList.add("btn-disabled");
-      document.getElementById("btnNext").textContent = "Next";
-
-      renderCurrent();
-    }
   </script>
 
 </body>
