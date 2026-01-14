@@ -45,7 +45,6 @@
       letter-spacing: 0.02em;
     }
 
-    /* Superscript sizing so ® is smaller/less noticeable */
     sup {
       font-size: 0.6em;
       vertical-align: super;
@@ -149,7 +148,6 @@
     .scenario-body { padding: 0.9rem 0.9rem 1.0rem; background: #ffffff; }
     .scenario-body p { margin: 0 0 0.55rem 0; font-size: 0.9rem; color: #333; line-height: 1.45; }
 
-    /* Italicize scenario subtitle line */
     #scenarioSubtitle { font-style: italic; }
 
     .question-card { border: 1px solid var(--border-light); border-radius: 10px; overflow: hidden; }
@@ -328,11 +326,10 @@
 
     <div id="assessment-screen" style="display:none;">
 
-      <!-- Progress bar: entire assessment -->
       <div class="progress-wrap">
         <div class="progress-top">
           <div class="progress-scenario" id="progressScenario">Progress</div>
-          <div class="progress-count" id="progressCount">Question 1 of 19</div>
+          <div class="progress-count" id="progressCount">Question 1 of 18</div>
         </div>
         <div class="progress-bar"><div id="progressBarFill"></div></div>
       </div>
@@ -345,7 +342,6 @@
         </div>
       </div>
 
-      <!-- Hidden email only (no mid-page email display) -->
       <input type="hidden" id="userEmail" />
 
       <div class="question-card">
@@ -392,15 +388,12 @@
         <input type="hidden" name="core_average" id="formCoreAverage">
         <input type="hidden" name="band" id="formBand">
 
-        <input type="hidden" name="confidence_calibration" id="formConfidenceCalibration">
-
         <!-- Timing -->
         <input type="hidden" name="start_ms" id="formStartMs">
         <input type="hidden" name="end_ms" id="formEndMs">
         <input type="hidden" name="duration_sec" id="formDurationSec">
       </form>
 
-      <!-- Distinct completion screen -->
       <div class="results" id="completedScreen" style="display:none;">
         <h2>Completed</h2>
         <p class="completion-text">
@@ -411,7 +404,6 @@
         </div>
       </div>
 
-      <!-- Results report -->
       <div class="results" id="results" style="display:none;">
         <h2>Your JQ Proficiency Profile</h2>
 
@@ -450,7 +442,7 @@
   </div>
 
   <script>
-    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx_Qf5YWto7uI32dGWXqkhHfkg4BLmBWeE19n2UXTwXlb_hDzPuGDXn39AsUYbCnnZ7Ig/exec";
+    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw3BMW-SSQQBmsoKbGyncZKmNh8ThLWbernqdFFxczsM05rnJ9qbj4O8ANRuRQM4zxCBA/exec";
 
     const DIM_LABEL = {
       DF: "Decision Framing",
@@ -465,10 +457,7 @@
     let currentIndex = 0;
     const answers = {};
 
-    // Timing
     let assessmentStartMs = null;
-
-    // Completion -> results handoff
     let lastComputedResults = null;
 
     const questionnaire = [
@@ -702,23 +691,6 @@
               { id: "C", text: "Launch a rapid fact-finding sprint with a response deadline", score: 5 },
               { id: "D", text: "Wait until more clarity emerges", score: 2 }
             ]
-          }
-        ]
-      },
-      {
-        scenarioId: "CAL",
-        title: "Assessment Calibration",
-        subtitle: "Final Calibration Check",
-        context:
-          "Confidence Level",
-        questions: [
-          {
-            id: "q19",
-            prompt: "How confident are you in the quality of your decisions across the scenarios above?",
-            type: "likert_direct",
-            dimension: null,
-            minLabel: "Very low",
-            maxLabel: "Very high"
           }
         ]
       }
@@ -959,9 +931,9 @@
 
       const currentAnswer = answers[q.id] || {};
       const meta = currentAnswer.meta || {};
-      const rankState = meta.rank || {}; // { optId: 1|2|3 }
+      const rankState = meta.rank || {};
 
-      const selectRefs = {}; // optId -> selectEl
+      const selectRefs = {};
 
       function buildOptionsHtml(currentVal, usedValsSet) {
         const opts = [
@@ -1106,12 +1078,7 @@
       if (dimScores.DF < 3.0 || dimScores.IR < 3.0) band = Math.min(band, 3);
       if (stability < 2.5) band = Math.min(band, 2);
 
-      const calibration = (answers["q19"] && answers["q19"].meta) ? answers["q19"].meta.selectedLikert : null;
-
-      // Submit first so it always records
-      submitToAppsScript(email, dimScores, stability, coreAvg, band, calibration, answers);
-
-      // Show Completed screen first; results behind a button
+      submitToAppsScript(email, dimScores, stability, coreAvg, band, answers);
       showCompleted(dimScores, stability, coreAvg, band);
     }
 
@@ -1120,7 +1087,6 @@
       document.getElementById("results").style.display = "none";
       document.getElementById("completedScreen").style.display = "block";
 
-      // Disable nav buttons
       document.getElementById("btnPrev").disabled = true;
       document.getElementById("btnNext").disabled = true;
       document.getElementById("btnPrev").classList.add("btn-disabled");
@@ -1166,9 +1132,7 @@
         grid.appendChild(div);
       });
 
-      // Band placement: green badge only
       bandText.innerHTML = `<span class="badge badge-high">Band ${band}</span>`;
-
       interp.innerHTML = bandInterpretation(band, dimScores, stability);
 
       results.style.display = "block";
@@ -1177,7 +1141,7 @@
       window.scrollTo({ top: wrapper.offsetTop, behavior: "smooth" });
     }
 
-    function submitToAppsScript(email, dimScores, stability, coreAvg, band, calibration, answersObj) {
+    function submitToAppsScript(email, dimScores, stability, coreAvg, band, answersObj) {
       const form = document.getElementById("submissionForm");
       if (!form) return;
 
@@ -1192,16 +1156,13 @@
       document.getElementById("formJudgmentStability").value = format1(stability);
       document.getElementById("formCoreAverage").value = format1(coreAvg);
       document.getElementById("formBand").value = `Band ${band}`;
-      document.getElementById("formConfidenceCalibration").value = (calibration === null || calibration === undefined) ? "" : String(calibration);
 
-      // Timing
       const endMs = Date.now();
       document.getElementById("formStartMs").value = assessmentStartMs ? String(assessmentStartMs) : "";
       document.getElementById("formEndMs").value = String(endMs);
       document.getElementById("formDurationSec").value =
         assessmentStartMs ? String(Math.round((endMs - assessmentStartMs) / 1000)) : "";
 
-      // (answers_json is intentionally not sent; if you add it later, guard it)
       const aj = document.getElementById("formAnswersJson");
       if (aj) aj.value = JSON.stringify(answersObj || {});
 
@@ -1222,17 +1183,6 @@
       if (avg >= 3.8 && stability < 3.6) return 3;
       if (avg >= 3.0 && stability < 3.0) return 2;
       return 2;
-    }
-
-    function bandName(band) {
-      switch (band) {
-        case 1: return "Fragile Judgment Proficiency";
-        case 2: return "Situational Judgment Proficiency";
-        case 3: return "Functional Judgment Proficiency";
-        case 4: return "Advanced Judgment Proficiency";
-        case 5: return "Expert Judgment Proficiency";
-        default: return "Judgment Proficiency";
-      }
     }
 
     function bandInterpretation(band, dimScores, stability) {
