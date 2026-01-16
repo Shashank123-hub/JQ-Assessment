@@ -4,7 +4,6 @@
   <meta charset="UTF-8" />
   <title>JQ Assessment</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;700&display=swap" rel="stylesheet">
 
   <style>
@@ -94,7 +93,8 @@
       color:#222;
     }
 
-    .intro-form input[type="email"] {
+    .intro-form input[type="email"],
+    .intro-form input[type="text"] {
       width: 100%;
       max-width: 420px;
       padding: 0.45rem 0.6rem;
@@ -258,12 +258,123 @@
 
     .note { font-size: 0.82rem; color: #666; margin-top: 0.55rem; line-height: 1.4; }
 
+    /* Share modal */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.45);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+      z-index: 9999;
+    }
+    .modal {
+      width: 100%;
+      max-width: 640px;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 12px 32px rgba(0,0,0,0.18);
+      border: 1px solid var(--border-light);
+      overflow: hidden;
+    }
+    .modal-header {
+      padding: 0.85rem 1rem;
+      background: #f2fbfa;
+      border-bottom: 1px solid var(--border-light);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+    }
+    .modal-title {
+      font-weight: 800;
+      color: var(--cq-teal);
+      font-size: 0.95rem;
+    }
+    .modal-body {
+      padding: 0.9rem 1rem 1rem;
+    }
+    .modal-body label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 700;
+      margin: 0.6rem 0 0.3rem;
+      color: #222;
+    }
+    .modal-body input[type="text"],
+    .modal-body input[type="email"] {
+      width: 100%;
+      padding: 0.5rem 0.6rem;
+      border-radius: 8px;
+      border: 1px solid var(--border-light);
+      font-size: 0.92rem;
+      background: #fff;
+    }
+    .modal-actions {
+      padding: 0.85rem 1rem;
+      border-top: 1px solid var(--border-light);
+      display: flex;
+      gap: 0.6rem;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      background: #fff;
+    }
+    .modal-close {
+      border: none;
+      background: transparent;
+      font-size: 1.1rem;
+      cursor: pointer;
+      line-height: 1;
+      color: #555;
+    }
+    .modal-close:hover { color: #111; }
+
+    .share-row {
+      border: 1px solid var(--border-light);
+      border-radius: 10px;
+      padding: 0.75rem;
+      margin-top: 0.75rem;
+      background: #fff;
+    }
+    .share-row-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .share-row-title {
+      font-weight: 800;
+      color: #333;
+      font-size: 0.88rem;
+    }
+    .share-remove {
+      border: none;
+      background: transparent;
+      color: #888;
+      cursor: pointer;
+      font-weight: 800;
+    }
+    .share-remove:hover { color: #111; }
+
+    .share-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+      margin-top: 0.5rem;
+    }
+
+    @media (max-width: 640px) {
+      .share-grid { grid-template-columns: 1fr; }
+    }
+
     @media print {
       body { padding: 0; background: #ffffff; }
       .assessment-wrapper { box-shadow: none; border-radius: 0; max-width: none; }
       .intro-screen { display: none !important; }
       .results-ctas { display: none !important; }
       .actions { display: none !important; }
+      .modal-overlay { display: none !important; }
     }
 
     @media (max-width: 768px) {
@@ -316,6 +427,11 @@
       <div id="intro-now-form" class="intro-form" style="display:none;">
         <label for="startNowEmail">Enter your email to start the assessment:</label>
         <input type="email" id="startNowEmail" placeholder="you@example.com" />
+
+        <!-- NEW: role/title capture -->
+        <label for="startNowRole">Your role / title (required):</label>
+        <input type="text" id="startNowRole" placeholder="e.g., VP Supply Chain, Ops Manager, Finance Director" />
+
         <div class="intro-buttons" style="margin-top:0.35rem;">
           <button class="btn-primary" type="button" onclick="submitTakeNowEmail()">Start Assessment</button>
           <button class="btn-secondary" type="button" onclick="backToIntroChoices()">Back</button>
@@ -326,40 +442,46 @@
 
     <div id="assessment-screen" style="display:none;">
 
-      <div class="progress-wrap">
-        <div class="progress-top">
-          <div class="progress-scenario" id="progressScenario">Progress</div>
-          <div class="progress-count" id="progressCount">Question 1 of 18</div>
-        </div>
-        <div class="progress-bar"><div id="progressBarFill"></div></div>
-      </div>
+      <div id="questionFlow">
 
-      <div class="scenario-card" id="scenarioCard" style="display:none;">
-        <div class="scenario-header" id="scenarioTitle">Scenario</div>
-        <div class="scenario-body">
-          <p id="scenarioSubtitle" style="margin-bottom:0.35rem; color:#555; font-size:0.88rem;"></p>
-          <p id="scenarioContext"></p>
-        </div>
-      </div>
-
-      <input type="hidden" id="userEmail" />
-
-      <div class="question-card">
-        <div class="question-header" id="questionHeader">Question</div>
-        <div class="question-body">
-          <p class="question-prompt" id="questionPrompt"></p>
-          <div id="questionOptions"></div>
-
-          <div id="rankBox" class="rank-box" style="display:none;">
-            <div><strong>Now rank the remaining three items</strong> from most acceptable to least acceptable.</div>
-            <div class="rank-grid" id="rankGrid"></div>
+        <div class="progress-wrap" id="progressWrap">
+          <div class="progress-top">
+            <div class="progress-scenario" id="progressScenario">Progress</div>
+            <div class="progress-count" id="progressCount">Question 1 of 19</div>
           </div>
+          <div class="progress-bar"><div id="progressBarFill"></div></div>
+        </div>
 
-          <div class="actions">
-            <button class="btn-secondary" type="button" onclick="prevQuestion()" id="btnPrev">Back</button>
-            <button class="btn-primary btn-disabled" type="button" onclick="nextQuestion()" id="btnNext" disabled>Next</button>
+        <div class="scenario-card" id="scenarioCard" style="display:none;">
+          <div class="scenario-header" id="scenarioTitle">Scenario</div>
+          <div class="scenario-body">
+            <p id="scenarioSubtitle" style="margin-bottom:0.35rem; color:#555; font-size:0.88rem;"></p>
+            <p id="scenarioContext"></p>
           </div>
         </div>
+
+        <input type="hidden" id="userEmail" />
+        <!-- NEW: store role client-side -->
+        <input type="hidden" id="userRole" />
+
+        <div class="question-card" id="questionCard">
+          <div class="question-header" id="questionHeader">Question</div>
+          <div class="question-body">
+            <p class="question-prompt" id="questionPrompt"></p>
+            <div id="questionOptions"></div>
+
+            <div id="rankBox" class="rank-box" style="display:none;">
+              <div><strong>Now rank the remaining three items</strong> from most acceptable to least acceptable.</div>
+              <div class="rank-grid" id="rankGrid"></div>
+            </div>
+
+            <div class="actions">
+              <button class="btn-secondary" type="button" onclick="prevQuestion()" id="btnPrev">Back</button>
+              <button class="btn-primary btn-disabled" type="button" onclick="nextQuestion()" id="btnNext" disabled>Next</button>
+            </div>
+          </div>
+        </div>
+
       </div>
 
       <iframe name="hidden_iframe" style="display:none;"></iframe>
@@ -372,11 +494,24 @@
       <form id="startNowForm" action="" method="POST" target="hidden_iframe" style="display:none;">
         <input type="hidden" name="mode" value="start_now">
         <input type="hidden" name="email" id="startNowHiddenEmail">
+        <!-- NEW -->
+        <input type="hidden" name="role" id="startNowHiddenRole">
+      </form>
+
+      <!-- Cohorts: share logging -->
+      <form id="shareForm" action="" method="POST" target="hidden_iframe" style="display:none;">
+        <input type="hidden" name="mode" value="share">
+        <!-- FIX: must be name="email" to match Code.gs -->
+        <input type="hidden" name="email" id="shareSenderEmail">
+        <input type="hidden" name="recipient_role" id="shareRecipientRole">
+        <input type="hidden" name="recipient_email" id="shareRecipientEmail">
       </form>
 
       <form id="submissionForm" action="" method="POST" target="hidden_iframe" style="display:none;">
         <input type="hidden" name="mode" value="completed">
         <input type="hidden" name="email" id="formEmail">
+        <!-- NEW -->
+        <input type="hidden" name="role" id="formRole">
 
         <input type="hidden" name="decision_framing" id="formDecisionFraming">
         <input type="hidden" name="tradeoff_ownership" id="formTradeoffOwnership">
@@ -388,12 +523,16 @@
         <input type="hidden" name="core_average" id="formCoreAverage">
         <input type="hidden" name="band" id="formBand">
 
-        <!-- Timing -->
+        <!-- Assessment Calibration (q19): collected & stored, not shown in report -->
+        <input type="hidden" name="confidence_calibration" id="formConfidenceCalibration">
+
+        <!-- Timing (ms sent; GAS writes as Date) -->
         <input type="hidden" name="start_ms" id="formStartMs">
         <input type="hidden" name="end_ms" id="formEndMs">
         <input type="hidden" name="duration_sec" id="formDurationSec">
       </form>
 
+      <!-- Completed screen (standalone) -->
       <div class="results" id="completedScreen" style="display:none;">
         <h2>Completed</h2>
         <p class="completion-text">
@@ -404,6 +543,7 @@
         </div>
       </div>
 
+      <!-- Results screen (standalone) -->
       <div class="results" id="results" style="display:none;">
         <h2>Your JQ Proficiency Profile</h2>
 
@@ -426,7 +566,7 @@
         <div class="results-ctas">
           <div class="results-cta-block results-cta-share">
             <p>Please get everyone you trust in your team to take this assessment.</p>
-            <button class="btn-primary" type="button" onclick="shareAssessment()">Share this assessment</button>
+            <button class="btn-primary" type="button" onclick="openShareModal()">Share this assessment</button>
           </div>
           <div class="results-cta-block results-cta-krishna">
             <p>For a deeper review of this assessment, please schedule a brief Zoom call with Krishna.</p>
@@ -441,8 +581,37 @@
     </div>
   </div>
 
+  <!-- Share Modal -->
+  <div id="shareModalOverlay" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="shareModalTitle">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title" id="shareModalTitle">Share this assessment</div>
+        <button class="modal-close" type="button" onclick="closeShareModal()" aria-label="Close">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="note" style="margin-top:0;">
+          We use this to understand cohorts inside an organization (who invited whom). Add one or more recipients below.
+        </div>
+
+        <div id="shareRecipientsWrap"></div>
+
+        <div class="actions" style="margin-top:0.85rem;">
+          <button class="btn-secondary" type="button" onclick="addShareRecipientRow()">Add another recipient</button>
+        </div>
+
+        <div class="note">
+          After you click Continue, we will log the recipient(s) and then open your share sheet (or copy the link).
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-secondary" type="button" onclick="closeShareModal()">Cancel</button>
+        <button class="btn-primary" type="button" onclick="logShareAndShareLink()">Continue</button>
+      </div>
+    </div>
+  </div>
+
   <script>
-    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw3BMW-SSQQBmsoKbGyncZKmNh8ThLWbernqdFFxczsM05rnJ9qbj4O8ANRuRQM4zxCBA/exec";
+    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxN4ZhUIByE9YnkVedfrKwpnKfDZZ996smN8BfvPHwOebmQnC_dleGoN_jTpd3q5WJc9Q/exec";
 
     const DIM_LABEL = {
       DF: "Decision Framing",
@@ -459,6 +628,9 @@
 
     let assessmentStartMs = null;
     let lastComputedResults = null;
+
+    // NEW
+    let assessmentRole = "";
 
     const questionnaire = [
       {
@@ -545,7 +717,7 @@
         title: "Scenario 2: Everyday Judgment",
         subtitle: "Moderate stakes, cumulative consequences",
         context:
-          "Over the past several weeks, you have noticed that a recurring type of decision keeps landing back on your desk. These are not high-stakes calls, but they require judgment and context that others on your team could reasonably develop. Stepping in ensures quality and efficiency, but it also reinforces dependency and increases your own load. Letting go creates short-term discomfort and uneven outcomes, but may strengthen judgment and lack of ownership over time. There is no immediate failure. However, how you handle this will shape both your workload and how judgment develops across the team.",
+          "Over the past several weeks, you have noticed that a recurring type of decision keeps landing back on your desk. These are not high-stakes calls, but they require judgment and context that others on your team could reasonably develop. Stepping in ensures quality and efficiency, but it also reinforces dependency and increases your own load. Letting go creates short-term discomfort and uneven outcomes, but may strengthen judgment and ownership over time. There is no immediate failure. However, how you handle this will shape both your workload and how judgment develops across the team.",
         questions: [
           {
             id: "q7",
@@ -693,6 +865,22 @@
             ]
           }
         ]
+      },
+      {
+        scenarioId: "CAL",
+        title: "Assessment Calibration",
+        subtitle: "Final Calibration Check",
+        context: "Confidence Level",
+        questions: [
+          {
+            id: "q19",
+            prompt: "How confident are you in the quality of your decisions across the scenarios above?",
+            type: "likert_direct",
+            dimension: null,
+            minLabel: "Very low",
+            maxLabel: "Very high"
+          }
+        ]
       }
     ];
 
@@ -703,13 +891,20 @@
       const submissionForm = document.getElementById("submissionForm");
       const laterForm = document.getElementById("takeLaterForm");
       const startForm = document.getElementById("startNowForm");
+      const shareForm = document.getElementById("shareForm");
+
       if (submissionForm) submissionForm.action = APPS_SCRIPT_URL;
       if (laterForm) laterForm.action = APPS_SCRIPT_URL;
       if (startForm) startForm.action = APPS_SCRIPT_URL;
+      if (shareForm) shareForm.action = APPS_SCRIPT_URL;
 
       const params = new URLSearchParams(window.location.search);
       const startNow = params.get("start") === "now" || params.get("mode") === "now";
       if (startNow) showTakeNowForm();
+
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") closeShareModal();
+      });
     });
 
     function backToIntroChoices() {
@@ -751,32 +946,68 @@
 
     function submitTakeNowEmail() {
       const emailInput = document.getElementById("startNowEmail");
+      const roleInput = document.getElementById("startNowRole");
+
       const email = (emailInput.value || "").trim();
+      const role = (roleInput.value || "").trim();
 
       if (!email) { alert("Please enter your email address to start the assessment."); emailInput.focus(); return; }
       if (!validateEmail(email)) { alert("Please enter a valid email address (e.g., name@example.com)."); emailInput.focus(); return; }
 
+      // NEW: role required
+      if (!role) { alert("Please enter your role/title to start the assessment."); roleInput.focus(); return; }
+
       assessmentEmail = email;
+      assessmentRole = role; // NEW
       assessmentStartMs = Date.now();
 
       document.getElementById("userEmail").value = email;
+      document.getElementById("userRole").value = role;
 
       const startForm = document.getElementById("startNowForm");
       document.getElementById("startNowHiddenEmail").value = email;
+      document.getElementById("startNowHiddenRole").value = role; // NEW
       startForm.submit();
 
       document.getElementById("intro-screen").style.display = "none";
       document.getElementById("assessment-screen").style.display = "block";
 
+      showQuestionFlow();
       currentIndex = 0;
       renderCurrent();
 
       emailInput.value = "";
+      roleInput.value = "";
+      scrollToTopOfCard_();
+    }
+
+    function showQuestionFlow() {
+      document.getElementById("questionFlow").style.display = "block";
+      document.getElementById("completedScreen").style.display = "none";
+      document.getElementById("results").style.display = "none";
+    }
+
+    function showStandaloneCompleted() {
+      document.getElementById("questionFlow").style.display = "none";
+      document.getElementById("results").style.display = "none";
+      document.getElementById("completedScreen").style.display = "block";
+      scrollToTopOfCard_();
+    }
+
+    function showStandaloneResults() {
+      document.getElementById("questionFlow").style.display = "none";
+      document.getElementById("completedScreen").style.display = "none";
+      document.getElementById("results").style.display = "block";
+      scrollToTopOfCard_();
+    }
+
+    function scrollToTopOfCard_() {
       const wrapper = document.querySelector(".assessment-wrapper");
       window.scrollTo({ top: wrapper.offsetTop, behavior: "smooth" });
     }
 
     function renderCurrent() {
+      document.getElementById("questionFlow").style.display = "block";
       document.getElementById("results").style.display = "none";
       document.getElementById("completedScreen").style.display = "none";
 
@@ -865,7 +1096,7 @@
           pill.textContent = String(i);
 
           pill.addEventListener("click", () => {
-            document.querySelectorAll(".likert-pill").forEach(p => p.classList.remove("selected"));
+            optionsWrap.querySelectorAll(".likert-pill").forEach(p => p.classList.remove("selected"));
             pill.classList.add("selected");
             saveLikertAnswer(q, i);
             setNextEnabled(true);
@@ -1014,7 +1245,6 @@
     function saveMcqAnswer(q, opt) {
       const scoreByDim = {};
       if (q.dimension) scoreByDim[q.dimension] = opt.score;
-
       answers[q.id] = { choiceId: opt.id, scoreByDim: scoreByDim, meta: { optionText: opt.text } };
     }
 
@@ -1029,14 +1259,18 @@
       }
 
       if (q.dimension) scoreByDim[q.dimension] = score;
-
       answers[q.id] = { choiceId: String(selected), scoreByDim: scoreByDim, meta: { selectedLikert: selected } };
     }
 
     function finishAssessment() {
       const email = assessmentEmail || (document.getElementById("userEmail").value || "").trim();
+      const role = assessmentRole || (document.getElementById("userRole").value || "").trim(); // NEW
       if (!email || !validateEmail(email)) {
         alert("Email is missing or invalid. Please restart and enter a valid email.");
+        return;
+      }
+      if (!role) {
+        alert("Role/title is missing. Please restart and enter your role/title.");
         return;
       }
 
@@ -1078,14 +1312,15 @@
       if (dimScores.DF < 3.0 || dimScores.IR < 3.0) band = Math.min(band, 3);
       if (stability < 2.5) band = Math.min(band, 2);
 
-      submitToAppsScript(email, dimScores, stability, coreAvg, band, answers);
+      // q19 Calibration capture (stored but not shown in report)
+      const calibration = (answers["q19"] && answers["q19"].meta) ? answers["q19"].meta.selectedLikert : null;
+
+      submitToAppsScript(email, role, dimScores, stability, coreAvg, band, calibration); // NEW role passed
       showCompleted(dimScores, stability, coreAvg, band);
     }
 
     function showCompleted(dimScores, stability, coreAvg, band) {
       lastComputedResults = { dimScores, stability, coreAvg, band };
-      document.getElementById("results").style.display = "none";
-      document.getElementById("completedScreen").style.display = "block";
 
       document.getElementById("btnPrev").disabled = true;
       document.getElementById("btnNext").disabled = true;
@@ -1093,29 +1328,28 @@
       document.getElementById("btnNext").classList.add("btn-disabled");
       document.getElementById("btnNext").textContent = "Completed";
 
-      const wrapper = document.querySelector(".assessment-wrapper");
-      window.scrollTo({ top: wrapper.offsetTop, behavior: "smooth" });
+      showStandaloneCompleted();
     }
 
     function showResults() {
       if (!lastComputedResults) return;
-      document.getElementById("completedScreen").style.display = "none";
       renderResults(
         lastComputedResults.dimScores,
         lastComputedResults.stability,
         lastComputedResults.coreAvg,
         lastComputedResults.band
       );
+      showStandaloneResults();
     }
 
     function renderResults(dimScores, stability, coreAvg, band) {
-      const results = document.getElementById("results");
       const grid = document.getElementById("dimensionResults");
       const bandText = document.getElementById("bandText");
       const interp = document.getElementById("bandInterpretation");
 
       grid.innerHTML = "";
 
+      // Calibration is NOT displayed on report (Krishna feedback), but is collected + stored.
       const rows = [
         { label: DIM_LABEL.DF, value: dimScores.DF },
         { label: DIM_LABEL.TO, value: dimScores.TO },
@@ -1128,24 +1362,30 @@
 
       rows.forEach(r => {
         const div = document.createElement("div");
-        div.innerHTML = `<strong>${r.label}</strong><br>Score: ${format1(r.value)} ${scoreBadge(r.value)}`;
+        const v = format1(r.value);
+        div.innerHTML = `<strong>${r.label}</strong><br>Score: ${v} ${scoreBadgeNumeric_(r.value)}`;
         grid.appendChild(div);
       });
 
       bandText.innerHTML = `<span class="badge badge-high">Band ${band}</span>`;
       interp.innerHTML = bandInterpretation(band, dimScores, stability);
-
-      results.style.display = "block";
-
-      const wrapper = document.querySelector(".assessment-wrapper");
-      window.scrollTo({ top: wrapper.offsetTop, behavior: "smooth" });
     }
 
-    function submitToAppsScript(email, dimScores, stability, coreAvg, band, answersObj) {
+    function scoreBadgeNumeric_(val) {
+      const n = Number(val);
+      if (!isFinite(n)) return "";
+      if (n <= 2.0) return `<span class="badge badge-low">Low</span>`;
+      if (n <= 3.4) return `<span class="badge badge-mid">Mid</span>`;
+      return `<span class="badge badge-high">High</span>`;
+    }
+
+    // NEW: role added
+    function submitToAppsScript(email, role, dimScores, stability, coreAvg, band, calibration) {
       const form = document.getElementById("submissionForm");
       if (!form) return;
 
       document.getElementById("formEmail").value = email || "";
+      document.getElementById("formRole").value = role || "";
 
       document.getElementById("formDecisionFraming").value = format1(dimScores.DF);
       document.getElementById("formTradeoffOwnership").value = format1(dimScores.TO);
@@ -1157,14 +1397,14 @@
       document.getElementById("formCoreAverage").value = format1(coreAvg);
       document.getElementById("formBand").value = `Band ${band}`;
 
+      document.getElementById("formConfidenceCalibration").value =
+        (calibration === null || calibration === undefined) ? "" : String(calibration);
+
       const endMs = Date.now();
       document.getElementById("formStartMs").value = assessmentStartMs ? String(assessmentStartMs) : "";
       document.getElementById("formEndMs").value = String(endMs);
       document.getElementById("formDurationSec").value =
         assessmentStartMs ? String(Math.round((endMs - assessmentStartMs) / 1000)) : "";
-
-      const aj = document.getElementById("formAnswersJson");
-      if (aj) aj.value = JSON.stringify(answersObj || {});
 
       form.submit();
     }
@@ -1231,31 +1471,165 @@
       return (Math.round(val * 10) / 10).toFixed(1);
     }
 
-    function scoreBadge(score) {
-      if (!isFinite(score)) return "";
-      if (score <= 2.0) return `<span class="badge badge-low">Low</span>`;
-      if (score <= 3.4) return `<span class="badge badge-mid">Mid</span>`;
-      return `<span class="badge badge-high">High</span>`;
+    /* Cohorts + share logging (multi-recipient) */
+
+    function openShareModal() {
+      const overlay = document.getElementById("shareModalOverlay");
+      const wrap = document.getElementById("shareRecipientsWrap");
+      wrap.innerHTML = "";
+      addShareRecipientRow_(true); // first row, no remove
+
+      overlay.style.display = "flex";
+      setTimeout(() => {
+        const firstRole = wrap.querySelector('input[data-field="role"]');
+        if (firstRole) firstRole.focus();
+      }, 0);
     }
 
-    function shareAssessment() {
-      const url = window.location.href.split("?")[0];
-      const shareText = `Take the JQ Assessment: ${url}`;
+    function closeShareModal() {
+      document.getElementById("shareModalOverlay").style.display = "none";
+    }
+
+    // IMPORTANT: internal helper is named with underscore to avoid name collision/recursion bug
+    function addShareRecipientRow_(isFirst) {
+      const wrap = document.getElementById("shareRecipientsWrap");
+
+      // NEW: cap at 3
+      if (wrap.children.length >= 3) {
+        alert("You can add a maximum of 3 recipients.");
+        return;
+      }
+
+      const idx = wrap.children.length + 1;
+
+      const row = document.createElement("div");
+      row.className = "share-row";
+
+      const top = document.createElement("div");
+      top.className = "share-row-top";
+      top.innerHTML = `
+        <div class="share-row-title">Recipient ${idx}</div>
+        ${isFirst ? "" : `<button class="share-remove" type="button" onclick="removeShareRecipientRow(this)">Remove</button>`}
+      `;
+
+      const grid = document.createElement("div");
+      grid.className = "share-grid";
+      grid.innerHTML = `
+        <div>
+          <label>Recipient role / title (required)</label>
+          <input type="text" data-field="role" placeholder="e.g., VP Supply Chain, Ops Manager, Finance Director" />
+        </div>
+        <div>
+          <label>Recipient email (required)</label>
+          <input type="email" data-field="email" placeholder="name@company.com" />
+        </div>
+      `;
+
+      row.appendChild(top);
+      row.appendChild(grid);
+      wrap.appendChild(row);
+    }
+
+    // Public button handler (no params)
+    function addShareRecipientRow() {
+      addShareRecipientRow_(false);
+    }
+
+    function removeShareRecipientRow(btn) {
+      const row = btn.closest(".share-row");
+      if (row) row.remove();
+
+      const wrap = document.getElementById("shareRecipientsWrap");
+      Array.from(wrap.children).forEach((child, i) => {
+        const title = child.querySelector(".share-row-title");
+        if (title) title.textContent = `Recipient ${i + 1}`;
+      });
+    }
+
+    function logShareAndShareLink() {
+      if (!assessmentEmail || !validateEmail(assessmentEmail)) {
+        alert("Your email is missing. Please complete the assessment first.");
+        closeShareModal();
+        return;
+      }
+
+      const wrap = document.getElementById("shareRecipientsWrap");
+      const rows = Array.from(wrap.querySelectorAll(".share-row"));
+
+      if (rows.length === 0) {
+        alert("Please add at least one recipient.");
+        return;
+      }
+
+      // NEW: enforce max 3
+      if (rows.length > 3) {
+        alert("Please keep recipients to a maximum of 3.");
+        return;
+      }
+
+      const entries = [];
+      for (const r of rows) {
+        const roleInput = r.querySelector('input[data-field="role"]');
+        const emailInput = r.querySelector('input[data-field="email"]');
+        const role = (roleInput ? roleInput.value : "").trim();
+        const email = (emailInput ? emailInput.value : "").trim();
+
+        if (!role) { alert("Please enter a role/title for every recipient."); if (roleInput) roleInput.focus(); return; }
+        if (!email || !validateEmail(email)) { alert("Please enter a valid email for every recipient."); if (emailInput) emailInput.focus(); return; }
+
+        entries.push({ role, email });
+      }
+
+      closeShareModal();
+
+      // Submit each share entry via hidden form + iframe
+      submitShareEntriesSequentially_(entries, 0, () => {
+        shareAssessmentLink_();
+      });
+    }
+
+    function submitShareEntriesSequentially_(entries, idx, doneCb) {
+      if (idx >= entries.length) {
+        if (typeof doneCb === "function") doneCb();
+        return;
+      }
+
+      const entry = entries[idx];
+      const form = document.getElementById("shareForm");
+
+      // FIX: Code.gs expects p.email (sender), not sender_email
+      document.getElementById("shareSenderEmail").value = assessmentEmail;
+      document.getElementById("shareRecipientRole").value = entry.role;
+      document.getElementById("shareRecipientEmail").value = entry.email;
+
+      form.submit();
+
+      setTimeout(() => submitShareEntriesSequentially_(entries, idx + 1, doneCb), 250);
+    }
+
+    function shareAssessmentLink_() {
+      const baseUrl = window.location.href.split("?")[0];
+      const shareUrl = baseUrl; // keep simple (matches cohort via Invites sheet)
+      const shareText = `Take the JQ Assessment: ${shareUrl}`;
 
       if (navigator.share) {
-        navigator.share({ title: "JQ Assessment", text: shareText, url })
-          .catch(() => copyToClipboard(shareText));
+        navigator.share({ title: "JQ Assessment", text: shareText, url: shareUrl })
+          .catch(() => copyToClipboard_(shareText));
       } else {
-        copyToClipboard(shareText);
+        copyToClipboard_(shareText);
       }
     }
 
-    function copyToClipboard(text) {
-      navigator.clipboard.writeText(text).then(() => {
-        alert("Link copied to clipboard.");
-      }).catch(() => {
+    function copyToClipboard_(text) {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => {
+          alert("Link copied to clipboard.");
+        }).catch(() => {
+          prompt("Copy this link:", text);
+        });
+      } else {
         prompt("Copy this link:", text);
-      });
+      }
     }
 
     function openKrishnaBooking() {
