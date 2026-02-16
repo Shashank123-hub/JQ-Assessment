@@ -403,7 +403,8 @@
         <li>This assessment produces a Judgment Proficiency Profile and band placement.</li>
       </ul>
 
-      <div class="intro-heading" style="margin-top:0.9rem;">When would you like to do this?</div>
+      <!-- UPDATED: give this heading an id so we can toggle it -->
+      <div id="whenHeading" class="intro-heading" style="margin-top:0.9rem;">When would you like to do this?</div>
 
       <div id="intro-choices" class="intro-buttons">
         <button class="btn-primary" type="button" onclick="showTakeLaterForm()">Take It Later</button>
@@ -428,7 +429,7 @@
         <label for="startNowEmail">Enter your email to start the assessment:</label>
         <input type="email" id="startNowEmail" placeholder="you@example.com" />
 
-        <!-- NEW: role/title capture -->
+        <!-- role/title capture -->
         <label for="startNowRole">Your role / title (required):</label>
         <input type="text" id="startNowRole" placeholder="e.g., VP Supply Chain, Ops Manager, Finance Director" />
 
@@ -461,7 +462,6 @@
         </div>
 
         <input type="hidden" id="userEmail" />
-        <!-- NEW: store role client-side -->
         <input type="hidden" id="userRole" />
 
         <div class="question-card" id="questionCard">
@@ -494,14 +494,11 @@
       <form id="startNowForm" action="" method="POST" target="hidden_iframe" style="display:none;">
         <input type="hidden" name="mode" value="start_now">
         <input type="hidden" name="email" id="startNowHiddenEmail">
-        <!-- NEW -->
         <input type="hidden" name="role" id="startNowHiddenRole">
       </form>
 
-      <!-- Cohorts: share logging -->
       <form id="shareForm" action="" method="POST" target="hidden_iframe" style="display:none;">
         <input type="hidden" name="mode" value="share">
-        <!-- FIX: must be name="email" to match Code.gs -->
         <input type="hidden" name="email" id="shareSenderEmail">
         <input type="hidden" name="recipient_role" id="shareRecipientRole">
         <input type="hidden" name="recipient_email" id="shareRecipientEmail">
@@ -510,7 +507,6 @@
       <form id="submissionForm" action="" method="POST" target="hidden_iframe" style="display:none;">
         <input type="hidden" name="mode" value="completed">
         <input type="hidden" name="email" id="formEmail">
-        <!-- NEW -->
         <input type="hidden" name="role" id="formRole">
 
         <input type="hidden" name="decision_framing" id="formDecisionFraming">
@@ -523,16 +519,13 @@
         <input type="hidden" name="core_average" id="formCoreAverage">
         <input type="hidden" name="band" id="formBand">
 
-        <!-- Assessment Calibration (q19): collected & stored, not shown in report -->
         <input type="hidden" name="confidence_calibration" id="formConfidenceCalibration">
 
-        <!-- Timing (ms sent; GAS writes as Date) -->
         <input type="hidden" name="start_ms" id="formStartMs">
         <input type="hidden" name="end_ms" id="formEndMs">
         <input type="hidden" name="duration_sec" id="formDurationSec">
       </form>
 
-      <!-- Completed screen (standalone) -->
       <div class="results" id="completedScreen" style="display:none;">
         <h2>Completed</h2>
         <p class="completion-text">
@@ -543,7 +536,6 @@
         </div>
       </div>
 
-      <!-- Results screen (standalone) -->
       <div class="results" id="results" style="display:none;">
         <h2>Your JQ Proficiency Profile</h2>
 
@@ -600,7 +592,7 @@
         </div>
 
         <div class="note">
-          After you click Continue, you can email or copy the link and share it with them.
+          After you click Continue, your email app will open with a prefilled message to send.
         </div>
       </div>
       <div class="modal-actions">
@@ -611,7 +603,7 @@
   </div>
 
   <script>
-    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxN4ZhUIByE9YnkVedfrKwpnKfDZZ996smN8BfvPHwOebmQnC_dleGoN_jTpd3q5WJc9Q/exec";
+    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzgQEybqfw9Y6728OzIXzUEMyl3vYrV52XXvzjmoy6ECedojiKxm1fEyK4-oh07l2z0xQ/exec";
 
     const DIM_LABEL = {
       DF: "Decision Framing",
@@ -629,7 +621,6 @@
     let assessmentStartMs = null;
     let lastComputedResults = null;
 
-    // NEW
     let assessmentRole = "";
 
     const questionnaire = [
@@ -907,11 +898,19 @@
       });
     });
 
+    // ---------- NEW: toggle helper ----------
+    function setWhenHeadingVisible_(visible) {
+      const wh = document.getElementById("whenHeading");
+      if (!wh) return;
+      wh.style.display = visible ? "block" : "none";
+    }
+
     function backToIntroChoices() {
       document.getElementById("intro-choices").style.display = "flex";
       document.getElementById("intro-later-form").style.display = "none";
       document.getElementById("intro-now-form").style.display = "none";
       document.getElementById("intro-later-thanks").style.display = "none";
+      setWhenHeadingVisible_(true); // show heading again
     }
 
     function showTakeLaterForm() {
@@ -919,6 +918,7 @@
       document.getElementById("intro-now-form").style.display = "none";
       document.getElementById("intro-later-thanks").style.display = "none";
       document.getElementById("intro-later-form").style.display = "block";
+      setWhenHeadingVisible_(false); // hide after selection
     }
 
     function showTakeNowForm() {
@@ -926,6 +926,7 @@
       document.getElementById("intro-later-form").style.display = "none";
       document.getElementById("intro-later-thanks").style.display = "none";
       document.getElementById("intro-now-form").style.display = "block";
+      setWhenHeadingVisible_(false); // hide after selection
     }
 
     function submitTakeLaterEmail() {
@@ -953,12 +954,10 @@
 
       if (!email) { alert("Please enter your email address to start the assessment."); emailInput.focus(); return; }
       if (!validateEmail(email)) { alert("Please enter a valid email address (e.g., name@example.com)."); emailInput.focus(); return; }
-
-      // NEW: role required
       if (!role) { alert("Please enter your role/title to start the assessment."); roleInput.focus(); return; }
 
       assessmentEmail = email;
-      assessmentRole = role; // NEW
+      assessmentRole = role;
       assessmentStartMs = Date.now();
 
       document.getElementById("userEmail").value = email;
@@ -966,7 +965,7 @@
 
       const startForm = document.getElementById("startNowForm");
       document.getElementById("startNowHiddenEmail").value = email;
-      document.getElementById("startNowHiddenRole").value = role; // NEW
+      document.getElementById("startNowHiddenRole").value = role;
       startForm.submit();
 
       document.getElementById("intro-screen").style.display = "none";
@@ -1264,7 +1263,7 @@
 
     function finishAssessment() {
       const email = assessmentEmail || (document.getElementById("userEmail").value || "").trim();
-      const role = assessmentRole || (document.getElementById("userRole").value || "").trim(); // NEW
+      const role = assessmentRole || (document.getElementById("userRole").value || "").trim();
       if (!email || !validateEmail(email)) {
         alert("Email is missing or invalid. Please restart and enter a valid email.");
         return;
@@ -1312,10 +1311,9 @@
       if (dimScores.DF < 3.0 || dimScores.IR < 3.0) band = Math.min(band, 3);
       if (stability < 2.5) band = Math.min(band, 2);
 
-      // q19 Calibration capture (stored but not shown in report)
       const calibration = (answers["q19"] && answers["q19"].meta) ? answers["q19"].meta.selectedLikert : null;
 
-      submitToAppsScript(email, role, dimScores, stability, coreAvg, band, calibration); // NEW role passed
+      submitToAppsScript(email, role, dimScores, stability, coreAvg, band, calibration);
       showCompleted(dimScores, stability, coreAvg, band);
     }
 
@@ -1349,7 +1347,6 @@
 
       grid.innerHTML = "";
 
-      // Calibration is NOT displayed on report (Krishna feedback), but is collected + stored.
       const rows = [
         { label: DIM_LABEL.DF, value: dimScores.DF },
         { label: DIM_LABEL.TO, value: dimScores.TO },
@@ -1379,7 +1376,6 @@
       return `<span class="badge badge-high">High</span>`;
     }
 
-    // NEW: role added
     function submitToAppsScript(email, role, dimScores, stability, coreAvg, band, calibration) {
       const form = document.getElementById("submissionForm");
       if (!form) return;
@@ -1477,7 +1473,7 @@
       const overlay = document.getElementById("shareModalOverlay");
       const wrap = document.getElementById("shareRecipientsWrap");
       wrap.innerHTML = "";
-      addShareRecipientRow_(true); // first row, no remove
+      addShareRecipientRow_(true);
 
       overlay.style.display = "flex";
       setTimeout(() => {
@@ -1490,11 +1486,9 @@
       document.getElementById("shareModalOverlay").style.display = "none";
     }
 
-    // IMPORTANT: internal helper is named with underscore to avoid name collision/recursion bug
     function addShareRecipientRow_(isFirst) {
       const wrap = document.getElementById("shareRecipientsWrap");
 
-      // NEW: cap at 3
       if (wrap.children.length >= 3) {
         alert("You can add a maximum of 3 recipients.");
         return;
@@ -1530,7 +1524,6 @@
       wrap.appendChild(row);
     }
 
-    // Public button handler (no params)
     function addShareRecipientRow() {
       addShareRecipientRow_(false);
     }
@@ -1546,6 +1539,7 @@
       });
     }
 
+    // UPDATED: after logging, open mail app (mailto) with recipients + subject + body
     function logShareAndShareLink() {
       if (!assessmentEmail || !validateEmail(assessmentEmail)) {
         alert("Your email is missing. Please complete the assessment first.");
@@ -1561,7 +1555,6 @@
         return;
       }
 
-      // NEW: enforce max 3
       if (rows.length > 3) {
         alert("Please keep recipients to a maximum of 3.");
         return;
@@ -1582,9 +1575,8 @@
 
       closeShareModal();
 
-      // Submit each share entry via hidden form + iframe
       submitShareEntriesSequentially_(entries, 0, () => {
-        shareAssessmentLink_();
+        openEmailComposer_(entries);
       });
     }
 
@@ -1597,7 +1589,6 @@
       const entry = entries[idx];
       const form = document.getElementById("shareForm");
 
-      // FIX: Code.gs expects p.email (sender), not sender_email
       document.getElementById("shareSenderEmail").value = assessmentEmail;
       document.getElementById("shareRecipientRole").value = entry.role;
       document.getElementById("shareRecipientEmail").value = entry.email;
@@ -1607,29 +1598,25 @@
       setTimeout(() => submitShareEntriesSequentially_(entries, idx + 1, doneCb), 250);
     }
 
-    function shareAssessmentLink_() {
+    // NEW: mailto email composer (Team JQ style)
+    function openEmailComposer_(entries) {
       const baseUrl = window.location.href.split("?")[0];
-      const shareUrl = baseUrl; // keep simple (matches cohort via Invites sheet)
-      const shareText = `Take the JQ Assessment: ${shareUrl}`;
+      const shareUrl = baseUrl;
 
-      if (navigator.share) {
-        navigator.share({ title: "JQ Assessment", text: shareText, url: shareUrl })
-          .catch(() => copyToClipboard_(shareText));
-      } else {
-        copyToClipboard_(shareText);
-      }
-    }
+      const to = entries.map(e => e.email).join(",");
 
-    function copyToClipboard_(text) {
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text).then(() => {
-          alert("Link copied to clipboard.");
-        }).catch(() => {
-          prompt("Copy this link:", text);
-        });
-      } else {
-        prompt("Copy this link:", text);
-      }
+      const subject = "JQ Assessment – Please take this";
+      const bodyLines = [
+        "Hi —",
+        "",
+        "Please take this short JQ Assessment:",
+        shareUrl,
+        "",
+        "Thank you."
+      ];
+
+      const mailto = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyLines.join("\n"))}`;
+      window.location.href = mailto;
     }
 
     function openKrishnaBooking() {
