@@ -419,6 +419,21 @@
       .share-grid { grid-template-columns: 1fr; }
       .bar-row { grid-template-columns: 1fr; }
       .bar-val { text-align: left; }
+      /* FIX: prevent band pills from spilling on mobile */
+  .band-row {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: 0.35rem;
+    text-align: left; /* optional */
+  }
+
+  .band-cell {
+    flex: 1 1 calc(33.33% - 0.35rem); /* 3 per row */
+    min-width: 92px;                 /* prevents squishing too much */
+    padding: 0.3rem 0.15rem;         /* slightly tighter */
+    font-size: 0.74rem;              /* slightly smaller */
+  }
     }
 
     @media print {
