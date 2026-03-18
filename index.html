@@ -1,3 +1,7 @@
+<!-- =========================
+UPDATED index.html (copy-paste)
+Stores Dev Insights to Google Sheet (no display on results)
+========================= -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -222,23 +226,6 @@
     .results h2 { font-size: 1.05rem; margin: 0 0 0.4rem 0; color: var(--cq-teal); font-weight: 800; }
     .results .completion-text { margin: 0.15rem 0 0.8rem 0; color:#333; line-height:1.45; }
 
-    .results-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 0.55rem 0.9rem; margin-bottom: 0.7rem; }
-
-    .badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 999px; font-size: 0.75rem; font-weight: 800; color: #ffffff; margin-left: 0.25rem; vertical-align: middle; }
-    .badge-low  { background: #d9534f; }
-    .badge-mid  { background: #f0ad4e; }
-    .badge-high { background: #5cb85c; }
-
-    .score-strong { color: var(--strong); font-weight: 700; }
-    .score-watch  { color: var(--watch);  font-weight: 700; }
-    .score-risk   { color: var(--risk);   font-weight: 700; }
-
-    .results-ctas { margin-top: 1.1rem; padding-top: 0.95rem; border-top: 1px dashed var(--border-light); display: grid; gap: 0.8rem; }
-    .results-cta-block { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; border-radius: 10px; border: 1px solid var(--border-light); padding: 0.8rem 0.9rem; }
-    .results-cta-block p { margin: 0; font-size: 0.92rem; flex: 1 1 auto; color:#222; }
-    .results-cta-share   { background: #f2fbfa; border-left: 4px solid var(--cq-teal); }
-    .results-cta-krishna { background: #fff7f3; border-left: 4px solid var(--cq-orange); }
-
     .note { font-size: 0.82rem; color: #666; margin-top: 0.55rem; line-height: 1.4; }
 
     /* Results v2 blocks */
@@ -296,9 +283,9 @@
     .stability-grid { display: grid; gap: 0.55rem; }
     .stability-item { display:flex; justify-content: space-between; gap: 0.8rem; font-size: 0.9rem; }
     .stability-item strong { color:#222; }
-    .stability-note { font-size: 0.86rem; color:#444; margin-top: 0.35rem; line-height: 1.45; }
+    .stability-note { font-size: 0.86rem; color:#444; margin-top: 0.35rem; line-height: 1.45; display:none; } /* hidden */
 
-    .narrative-block, .dev-block {
+    .narrative-block {
       border: 1px solid var(--border-light);
       border-radius: 12px;
       padding: 0.85rem 0.9rem;
@@ -306,8 +293,12 @@
       margin-bottom: 0.85rem;
     }
     .narrative-block p { margin: 0.35rem 0; line-height: 1.5; color:#222; }
-    .dev-block ul { margin: 0.45rem 0 0; padding-left: 1.1rem; }
-    .dev-block li { margin: 0.25rem 0; color:#222; line-height: 1.45; }
+
+    .results-ctas { margin-top: 1.1rem; padding-top: 0.95rem; border-top: 1px dashed var(--border-light); display: grid; gap: 0.8rem; }
+    .results-cta-block { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; border-radius: 10px; border: 1px solid var(--border-light); padding: 0.8rem 0.9rem; }
+    .results-cta-block p { margin: 0; font-size: 0.92rem; flex: 1 1 auto; color:#222; }
+    .results-cta-share   { background: #f2fbfa; border-left: 4px solid var(--cq-teal); }
+    .results-cta-krishna { background: #fff7f3; border-left: 4px solid var(--cq-orange); }
 
     /* Share modal */
     .modal-overlay {
@@ -419,21 +410,21 @@
       .share-grid { grid-template-columns: 1fr; }
       .bar-row { grid-template-columns: 1fr; }
       .bar-val { text-align: left; }
-      /* FIX: prevent band pills from spilling on mobile */
-  .band-row {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: flex-start;
-    gap: 0.35rem;
-    text-align: left; /* optional */
-  }
 
-  .band-cell {
-    flex: 1 1 calc(33.33% - 0.35rem); /* 3 per row */
-    min-width: 92px;                 /* prevents squishing too much */
-    padding: 0.3rem 0.15rem;         /* slightly tighter */
-    font-size: 0.74rem;              /* slightly smaller */
-  }
+      /* Prevent band pills from spilling on mobile */
+      .band-row {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-start;
+        gap: 0.35rem;
+        text-align: left;
+      }
+      .band-cell {
+        flex: 1 1 calc(33.33% - 0.35rem);
+        min-width: 92px;
+        padding: 0.3rem 0.15rem;
+        font-size: 0.74rem;
+      }
     }
 
     @media print {
@@ -564,7 +555,7 @@
         <input type="hidden" name="recipient_email" id="shareRecipientEmail">
       </form>
 
-      <!-- UPDATED: V2 fields -->
+      <!-- Submission Form -->
       <form id="submissionForm" action="" method="POST" target="hidden_iframe" style="display:none;">
         <input type="hidden" name="mode" value="completed">
         <input type="hidden" name="email" id="formEmail">
@@ -584,6 +575,11 @@
         <input type="hidden" name="start_ms" id="formStartMs">
         <input type="hidden" name="end_ms" id="formEndMs">
         <input type="hidden" name="duration_sec" id="formDurationSec">
+
+        <!-- NEW: Dev Insights stored to sheet -->
+        <input type="hidden" name="dev_strength" id="formDevStrength">
+        <input type="hidden" name="dev_opportunity" id="formDevOpportunity">
+        <input type="hidden" name="dev_reflection_prompt" id="formDevReflectionPrompt">
       </form>
 
       <div class="results" id="completedScreen" style="display:none;">
@@ -596,7 +592,6 @@
         </div>
       </div>
 
-      <!-- UPDATED: V2 results layout -->
       <div class="results" id="results" style="display:none;">
         <h2>Your Judgment Profile</h2>
 
@@ -621,18 +616,13 @@
           <div id="narrativeText"></div>
         </div>
 
-        <div class="dev-block">
-          <div style="font-weight:800; color:#222; margin-bottom:0.35rem;">Development Insights</div>
-          <ul id="devInsights"></ul>
-        </div>
-
         <div class="results-ctas">
           <div class="results-cta-block results-cta-share">
             <p>Please get everyone you trust in your team to take this assessment.</p>
             <button class="btn-primary" type="button" onclick="openShareModal()">Share this assessment</button>
           </div>
           <div class="results-cta-block results-cta-krishna">
-            <p>For a deeper review of this assessment, please schedule a brief Zoom call with Krishna.</p>
+            <p>For development insights, please schedule a brief Zoom call with Krishna.</p>
             <button class="btn-secondary" type="button" onclick="openKrishnaBooking()">Schedule a time with Krishna</button>
           </div>
         </div>
@@ -674,9 +664,8 @@
   </div>
 
   <script>
-    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbywU7R1UcYSMOdvvmphaAVgruZaDrOW9HcqIqIKTytn8cqpkPgNqjPMcFrgrrRg-K4-7Q/exec";
+    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyEg5UQLk5mYBVyv7GOtjzYP4zv3Z5zIKouMibocct4jOgp5ij0Ie5u-nh0t2CJnHKz6g/exec";
 
-    // V2 pillar labels
     const PILLAR_LABEL = {
       discernment: "Discernment",
       synthesis: "Synthesis",
@@ -690,21 +679,13 @@
     let assessmentStartMs = null;
 
     let currentIndex = 0;
-    const answers = {}; // stores numeric scores per question; composite stores meta too
+    const answers = {};
     let lastComputedResults = null;
 
-    // V2 scoring JSON (embedded)
     const V2 = {
       scaleMin: 1,
       scaleMax: 5,
       stabilityRule: { penalty_threshold: 0.6, penalty_value: 0.3 },
-      bands: [
-        { band: 1, name: "Fragile", min: 0,   max: 1.99 },
-        { band: 2, name: "Situational", min: 2.0, max: 2.99 },
-        { band: 3, name: "Functional",  min: 3.0, max: 3.79 },
-        { band: 4, name: "Advanced",    min: 3.8, max: 4.49 },
-        { band: 5, name: "Expert",      min: 4.5, max: 5.0 }
-      ],
       floorRules: [
         { pillar: "discernment", threshold: 3.0, maxBand: 3 },
         { pillar: "composure", threshold: 3.0, maxBand: 3 },
@@ -713,20 +694,14 @@
       questionScores: {
         Q1: { A:2, B:4, C:5, D:3 },
         Q2: { A:3, B:5, C:4, D:2 },
-        // Q3 composite: likert + interpretation
         Q3_interpretation: { A:3, B:4, C:5, D:4 },
-
         Q4: { A:4, B:3, C:5, D:4 },
         Q5: { A:4, B:5, C:3, D:3 },
-
         Q6: { A:2, B:3, C:5, D:4 },
         Q7: { A:3, B:4, C:5, D:2 },
-        // Q8 composite: likert + interpretation
         Q8_interpretation: { A:2, B:3, C:5, D:4 },
-
         Q9:  { A:3, B:4, C:5, D:4 },
         Q10: { A:3, B:5, C:4, D:4 },
-
         Q11: { A:3, B:4, C:5, D:4 },
         Q12: { A:5, B:4, C:3, D:4 },
         Q13: { A:4, B:3, C:5, D:4 },
@@ -743,7 +718,6 @@
       scenario3: ["Q11","Q12","Q13","Q14","Q15"]
     };
 
-    // V2 questionnaire (3 scenarios, 15 questions)
     const questionnaire = [
       {
         scenarioId: "S1",
@@ -1006,7 +980,6 @@
       const scenario = item.scenario;
       const q = item.q;
 
-      // Scenario card
       const scenarioCard = document.getElementById("scenarioCard");
       scenarioCard.style.display = "block";
       document.getElementById("scenarioTitle").textContent = `${scenario.title}`;
@@ -1015,15 +988,21 @@
       subtitleEl.style.display = scenario.subtitle ? "block" : "none";
       document.getElementById("scenarioContext").textContent = scenario.context;
 
-      // Progress
-      const scenarioIdx = questionnaire.findIndex(s => s.scenarioId === scenario.scenarioId) + 1;
-      document.getElementById("progressScenario").textContent = `Scenario ${scenarioIdx} of 3`;
-      document.getElementById("progressCount").textContent = `Question ${currentIndex + 1} of ${flat.length}`;
-      const pct = Math.round((currentIndex / Math.max(1, (flat.length - 1))) * 100);
-      document.getElementById("progressBarFill").style.width = `${pct}%`;
+      // Scenario index (1..3)
+const scenarioIdx = questionnaire.findIndex(s => s.scenarioId === scenario.scenarioId) + 1;
+document.getElementById("progressScenario").textContent = `Scenario ${scenarioIdx} of 3`;
 
-      // Question header/prompt
-      document.getElementById("questionHeader").textContent = `Question ${currentIndex + 1}`;
+// LOCAL question numbering within scenario (1..5)
+const localIndex = (scenario.questions || []).findIndex(qq => qq.id === q.id) + 1;
+const localTotal = (scenario.questions || []).length || 0;
+
+// Progress count + question header should RESET per scenario
+document.getElementById("progressCount").textContent = `Question ${localIndex} of ${localTotal}`;
+document.getElementById("questionHeader").textContent = `Question ${localIndex}`;
+
+// Keep progress bar as overall across 15 questions (unchanged)
+const pct = Math.round((currentIndex / Math.max(1, (flat.length - 1))) * 100);
+document.getElementById("progressBarFill").style.width = `${pct}%`;
       document.getElementById("questionPrompt").textContent = q.prompt;
       document.getElementById("questionPrompt").style.display = "block";
 
@@ -1083,12 +1062,10 @@
     }
 
     function renderComposite_(q, existing, wrap) {
-    // FIX: clear to avoid duplicating Part A / Part B on re-render
-     wrap.innerHTML = "";
+      wrap.innerHTML = "";
 
       const compositeState = existing && existing.meta ? existing.meta : { likert: null, interpretation: null };
 
-      // Part A: Likert
       const pA = document.createElement("div");
       pA.className = "note";
       pA.style.margin = "0 0 0.35rem 0";
@@ -1109,7 +1086,6 @@
           pill.classList.add("selected");
           compositeState.likert = i;
           persistComposite_(q.id, compositeState);
-          // enable Part B when Likert chosen
           renderComposite_(q, answers[q.id], wrap);
         });
 
@@ -1124,7 +1100,6 @@
       wrap.appendChild(likert);
       wrap.appendChild(labels);
 
-      // Part B: Interpretation (only show after Likert selected)
       const pB = document.createElement("div");
       pB.className = "note";
       pB.style.margin = "0.85rem 0 0.35rem 0";
@@ -1178,7 +1153,6 @@
     }
 
     function persistComposite_(qid, st) {
-      // For Q3 and Q8, score is average(likert, interpretationScore)
       if (st.likert === null) {
         answers[qid] = { choiceId: "", score: NaN, meta: st };
         setNextEnabled(false);
@@ -1225,7 +1199,6 @@
       const a = answers[q.id];
       if (!a) return;
 
-      // for composite, require numeric score
       if (q.type === "composite" && !isFinite(a.score)) return;
 
       if (currentIndex < flat.length - 1) {
@@ -1249,7 +1222,6 @@
         return;
       }
 
-      // Ensure all 15 answered
       for (const item of flat) {
         const qid = item.q.id;
         const a = answers[qid];
@@ -1259,7 +1231,6 @@
         }
       }
 
-      // Compute pillar scores
       const pillarScores = {};
       Object.keys(V2.pillarMap).forEach(p => {
         const qids = V2.pillarMap[p];
@@ -1267,14 +1238,11 @@
         pillarScores[p] = average(vals);
       });
 
-      // Stability = avg(Q11..Q15)
       const stabilityVals = V2.scenario3.map(qid => Number(answers[qid].score)).filter(v => isFinite(v));
       const stability = average(stabilityVals);
 
-      // Overall = average of 5 pillars
       let overall = average(Object.keys(V2.pillarMap).map(p => pillarScores[p]).filter(v => isFinite(v)));
 
-      // Penalty rule: if overall - stability >= threshold, subtract penalty
       let penaltyApplied = "No";
       const diff = overall - stability;
       if (isFinite(diff) && diff >= V2.stabilityRule.penalty_threshold) {
@@ -1282,10 +1250,8 @@
         penaltyApplied = "Yes";
       }
 
-      // Band by overall
       let band = bandFromOverall_(overall);
 
-      // Floor rules (band caps)
       V2.floorRules.forEach(rule => {
         const v = pillarScores[rule.pillar];
         if (isFinite(v) && v < rule.threshold) {
@@ -1293,8 +1259,33 @@
         }
       });
 
-      // Submit + store for results view
-      submitToAppsScriptV2_(email, role, pillarScores, stability, overall, band, penaltyApplied);
+      // NEW: compute dev insights to store in sheet
+      const pillarOrder = ["discernment","synthesis","composure","prioritization","learning"];
+      const ranked = pillarOrder
+        .map(p => ({ p, v: pillarScores[p] }))
+        .filter(x => isFinite(x.v))
+        .sort((a,b) => b.v - a.v);
+
+      const top = ranked[0];
+      const low = ranked[ranked.length - 1];
+
+      const devStrength = top
+        ? `Strength to leverage: Your ${PILLAR_LABEL[top.p]} suggests a reliable capability you can intentionally use as an anchor in complex situations.`
+        : "";
+
+      const devOpportunity = low
+        ? `Development opportunity: Strengthening ${PILLAR_LABEL[low.p]} may improve consistency, especially when signals conflict or pressure rises.`
+        : "";
+
+      const devReflectionPrompt =
+        `Reflection prompt: Think of a recent situation where pressure accelerated evaluation. What signal did you overweight, and what signal did you underweight?`;
+
+      submitToAppsScriptV2_(email, role, pillarScores, stability, overall, band, penaltyApplied, {
+        devStrength,
+        devOpportunity,
+        devReflectionPrompt
+      });
+
       lastComputedResults = { email, role, pillarScores, stability, overall, band, penaltyApplied };
       showStandaloneCompleted();
     }
@@ -1319,11 +1310,8 @@
       const bandStrip = document.getElementById("bandStrip");
       const pillarBars = document.getElementById("pillarBars");
       const stabilityGrid = document.getElementById("stabilityGrid");
-      const stabilityNote = document.getElementById("stabilityNote");
       const narrativeText = document.getElementById("narrativeText");
-      const devInsights = document.getElementById("devInsights");
 
-      // 1) Band strip
       const labels = ["Fragile","Situational","Functional","Advanced","Expert"];
       bandStrip.innerHTML = `
         <div style="font-weight:800; color:#222;">Overall Judgment Profile</div>
@@ -1335,7 +1323,6 @@
         </div>
       `;
 
-      // 2) Pillar bars
       pillarBars.innerHTML = "";
       const pillarOrder = ["discernment","synthesis","composure","prioritization","learning"];
       pillarOrder.forEach(p => {
@@ -1352,7 +1339,6 @@
         pillarBars.appendChild(row);
       });
 
-      // 3) Stability section
       stabilityGrid.innerHTML = "";
       const overallItem = document.createElement("div");
       overallItem.className = "stability-item";
@@ -1365,15 +1351,6 @@
       stabilityGrid.appendChild(overallItem);
       stabilityGrid.appendChild(stressItem);
 
-      const d = r.overall - r.stability;
-      const penaltyLine = (r.penaltyApplied === "Yes")
-        ? `A stability adjustment was applied because high-pressure evaluation was meaningfully lower than overall.`
-        : `No stability adjustment was applied.`;
-
-      stabilityNote.textContent = "";
-stabilityNote.style.display = "none";
-
-      // 4) Narrative: strengths + vulnerabilities
       const ranked = pillarOrder
         .map(p => ({ p, v: r.pillarScores[p] }))
         .filter(x => isFinite(x.v))
@@ -1384,7 +1361,7 @@ stabilityNote.style.display = "none";
 
       narrativeText.innerHTML = `
         <p><strong>How you evaluate situations</strong><br>
-        This profile describes how you interpret competing signals and evaluate complex situations across three contexts.</p>
+        This profile describes how you interpret competing signals and evaluate situations across three contexts.</p>
 
         <p><strong>Where judgment is strongest</strong><br>
         Strongest pillars: ${top2 || "n/a"}.</p>
@@ -1392,26 +1369,9 @@ stabilityNote.style.display = "none";
         <p><strong>Where evaluation may become vulnerable</strong><br>
         Most vulnerable pillars: ${low2 || "n/a"}.</p>
       `;
-
-      // 5) Development guidance (3 bullets)
-      devInsights.innerHTML = "";
-      const [top] = ranked;
-      const [low] = ranked.slice(-1);
-
-      const bullets = [
-        top ? `Strength to leverage: Your ${PILLAR_LABEL[top.p]} suggests a reliable capability you can intentionally use as an anchor in complex situations.` : `Strength to leverage: n/a`,
-        low ? `Development opportunity: Strengthening ${PILLAR_LABEL[low.p]} may improve consistency, especially when signals conflict or pressure rises.` : `Development opportunity: n/a`,
-        `Reflection prompt: Think of a recent situation where pressure accelerated evaluation. What signal did you overweight, and what signal did you underweight?`
-      ];
-
-      bullets.forEach(t => {
-        const li = document.createElement("li");
-        li.textContent = t;
-        devInsights.appendChild(li);
-      });
     }
 
-    function submitToAppsScriptV2_(email, role, pillarScores, stability, overall, band, penaltyApplied) {
+    function submitToAppsScriptV2_(email, role, pillarScores, stability, overall, band, penaltyApplied, dev) {
       const form = document.getElementById("submissionForm");
       if (!form) return;
 
@@ -1435,6 +1395,11 @@ stabilityNote.style.display = "none";
       document.getElementById("formDurationSec").value =
         assessmentStartMs ? String(Math.round((endMs - assessmentStartMs) / 1000)) : "";
 
+      // NEW: dev insights
+      document.getElementById("formDevStrength").value = (dev && dev.devStrength) ? dev.devStrength : "";
+      document.getElementById("formDevOpportunity").value = (dev && dev.devOpportunity) ? dev.devOpportunity : "";
+      document.getElementById("formDevReflectionPrompt").value = (dev && dev.devReflectionPrompt) ? dev.devReflectionPrompt : "";
+
       form.submit();
     }
 
@@ -1454,7 +1419,6 @@ stabilityNote.style.display = "none";
     }
 
     /* Share logging (unchanged) */
-
     function openShareModal() {
       const overlay = document.getElementById("shareModalOverlay");
       const wrap = document.getElementById("shareRecipientsWrap");
@@ -1510,9 +1474,7 @@ stabilityNote.style.display = "none";
       wrap.appendChild(row);
     }
 
-    function addShareRecipientRow() {
-      addShareRecipientRow_(false);
-    }
+    function addShareRecipientRow() { addShareRecipientRow_(false); }
 
     function removeShareRecipientRow(btn) {
       const row = btn.closest(".share-row");
