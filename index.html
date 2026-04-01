@@ -487,9 +487,11 @@ JQ Assessment flow simplified per feedback
     <p class="subtitle">Takes about 10–15 minutes</p>
 
     <div id="intro-screen" class="intro-screen">
-      <div class="intro-heading">When would you like to do this?</div>
-      <div class="intro-text-main">
-        Choose whether you want to take the assessment now or receive a link to complete it later.
+      <div id="intro-message">
+        <div class="intro-heading">When would you like to do this?</div>
+        <div class="intro-text-main">
+          Choose whether you want to take the assessment now or receive a link to complete it later.
+        </div>
       </div>
 
       <div id="intro-choices" class="intro-buttons">
@@ -900,7 +902,18 @@ JQ Assessment flow simplified per feedback
       });
     });
 
+    function showIntroMessage() {
+      const introMessage = document.getElementById("intro-message");
+      if (introMessage) introMessage.style.display = "block";
+    }
+
+    function hideIntroMessage() {
+      const introMessage = document.getElementById("intro-message");
+      if (introMessage) introMessage.style.display = "none";
+    }
+
     function backToIntroChoices() {
+      showIntroMessage();
       document.getElementById("intro-choices").style.display = "flex";
       document.getElementById("intro-later-form").style.display = "none";
       document.getElementById("intro-now-form").style.display = "none";
@@ -908,6 +921,7 @@ JQ Assessment flow simplified per feedback
     }
 
     function showTakeLaterForm() {
+      hideIntroMessage();
       document.getElementById("intro-choices").style.display = "none";
       document.getElementById("intro-now-form").style.display = "none";
       document.getElementById("intro-later-thanks").style.display = "none";
@@ -915,6 +929,7 @@ JQ Assessment flow simplified per feedback
     }
 
     function showTakeNowForm() {
+      hideIntroMessage();
       document.getElementById("intro-choices").style.display = "none";
       document.getElementById("intro-later-form").style.display = "none";
       document.getElementById("intro-later-thanks").style.display = "none";
