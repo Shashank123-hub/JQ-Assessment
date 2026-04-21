@@ -1,6 +1,7 @@
 <!-- =========================
 UPDATED index.html (copy-paste)
 JQ Assessment flow simplified per feedback
+Now includes question-level score capture for Responses V2
 ========================= -->
 <!DOCTYPE html>
 <html lang="en">
@@ -611,6 +612,29 @@ JQ Assessment flow simplified per feedback
         <input type="hidden" name="end_ms" id="formEndMs">
         <input type="hidden" name="duration_sec" id="formDurationSec">
 
+        <!-- NEW: Question-level scores -->
+        <input type="hidden" name="q1_score" id="formQ1Score">
+        <input type="hidden" name="q2_score" id="formQ2Score">
+        <input type="hidden" name="q3_score" id="formQ3Score">
+        <input type="hidden" name="q4_score" id="formQ4Score">
+        <input type="hidden" name="q5_score" id="formQ5Score">
+        <input type="hidden" name="q6_score" id="formQ6Score">
+        <input type="hidden" name="q7_score" id="formQ7Score">
+        <input type="hidden" name="q8_score" id="formQ8Score">
+        <input type="hidden" name="q9_score" id="formQ9Score">
+        <input type="hidden" name="q10_score" id="formQ10Score">
+        <input type="hidden" name="q11_score" id="formQ11Score">
+        <input type="hidden" name="q12_score" id="formQ12Score">
+        <input type="hidden" name="q13_score" id="formQ13Score">
+        <input type="hidden" name="q14_score" id="formQ14Score">
+        <input type="hidden" name="q15_score" id="formQ15Score">
+
+        <!-- NEW: Composite detail -->
+        <input type="hidden" name="q3_likert" id="formQ3Likert">
+        <input type="hidden" name="q3_interpretation" id="formQ3Interpretation">
+        <input type="hidden" name="q8_likert" id="formQ8Likert">
+        <input type="hidden" name="q8_interpretation" id="formQ8Interpretation">
+
         <input type="hidden" name="dev_strength" id="formDevStrength">
         <input type="hidden" name="dev_opportunity" id="formDevOpportunity">
         <input type="hidden" name="dev_reflection_prompt" id="formDevReflectionPrompt">
@@ -697,7 +721,7 @@ JQ Assessment flow simplified per feedback
   </div>
 
   <script>
-    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzx4Z5zFW2k1-5eDPWzyrgJL83FJe3PSJjEFTc7qkfxRJVdtDnhrlWdKukpg3_K8ebL/exec";
+    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxEOLw_MspeSQv6_7zvzmqKLZG0decOe3_j3MNSfRP9bfdWeYPa56AEDaZRh-OftJQOPw/exec";
 
     const PILLAR_LABEL = {
       discernment: "Discernment",
@@ -1427,6 +1451,24 @@ JQ Assessment flow simplified per feedback
       document.getElementById("formEndMs").value = String(endMs);
       document.getElementById("formDurationSec").value =
         assessmentStartMs ? String(Math.round((endMs - assessmentStartMs) / 1000)) : "";
+
+      // NEW: question-level scores
+      for (let i = 1; i <= 15; i++) {
+        const qid = `Q${i}`;
+        const ans = answers[qid];
+        const score = ans && isFinite(Number(ans.score)) ? format1(Number(ans.score)) : "";
+        const el = document.getElementById(`formQ${i}Score`);
+        if (el) el.value = score;
+      }
+
+      // NEW: composite details
+      const q3Meta = (answers.Q3 && answers.Q3.meta) ? answers.Q3.meta : {};
+      const q8Meta = (answers.Q8 && answers.Q8.meta) ? answers.Q8.meta : {};
+
+      document.getElementById("formQ3Likert").value = q3Meta.likert != null ? String(q3Meta.likert) : "";
+      document.getElementById("formQ3Interpretation").value = q3Meta.interpretation || "";
+      document.getElementById("formQ8Likert").value = q8Meta.likert != null ? String(q8Meta.likert) : "";
+      document.getElementById("formQ8Interpretation").value = q8Meta.interpretation || "";
 
       document.getElementById("formDevStrength").value = (dev && dev.devStrength) ? dev.devStrength : "";
       document.getElementById("formDevOpportunity").value = (dev && dev.devOpportunity) ? dev.devOpportunity : "";
