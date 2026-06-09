@@ -721,928 +721,1191 @@ Now includes question-level score capture for Responses V2
   </div>
 
   <script>
-    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxEOLw_MspeSQv6_7zvzmqKLZG0decOe3_j3MNSfRP9bfdWeYPa56AEDaZRh-OftJQOPw/exec";
+  const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxEOLw_MspeSQv6_7zvzmqKLZG0decOe3_j3MNSfRP9bfdWeYPa56AEDaZRh-OftJQOPw/exec";
 
-    const PILLAR_LABEL = {
-      discernment: "Discernment",
-      synthesis: "Synthesis",
-      composure: "Composure",
-      prioritization: "Prioritization",
-      learning: "Learning"
-    };
+  const PILLAR_LABEL = {
+    discernment: "Discernment",
+    synthesis: "Synthesis",
+    composure: "Composure",
+    prioritization: "Prioritization",
+    learning: "Learning"
+  };
 
-    let assessmentEmail = "";
-    let assessmentRole = "";
-    let assessmentStartMs = null;
+  const JQ_V2_SCORING = {
+    penalty: {
+      stabilityThreshold: 0.6,
+      stabilityPenaltyValue: 0.3
+    },
 
-    let currentIndex = 0;
-    const answers = {};
-    let lastComputedResults = null;
+    questionScores: {
+      Q1: { A:2, B:4, C:5, D:3 },
+      Q2: { A:3, B:5, C:4, D:2 },
+      Q3_interpretation: { A:3, B:4, C:5, D:4 },
+      Q4: { A:4, B:3, C:5, D:4 },
+      Q5: { A:4, B:5, C:3, D:3 },
 
-    const V2 = {
-      scaleMin: 1,
-      scaleMax: 5,
-      stabilityRule: { penalty_threshold: 0.6, penalty_value: 0.3 },
-      floorRules: [
-        { pillar: "discernment", threshold: 3.0, maxBand: 3 },
-        { pillar: "composure", threshold: 3.0, maxBand: 3 },
-        { pillar: "learning", threshold: 2.5, maxBand: 2 }
-      ],
-      questionScores: {
-        Q1: { A:2, B:4, C:5, D:3 },
-        Q2: { A:3, B:5, C:4, D:2 },
-        Q3_interpretation: { A:3, B:4, C:5, D:4 },
-        Q4: { A:4, B:3, C:5, D:4 },
-        Q5: { A:4, B:5, C:3, D:3 },
-        Q6: { A:2, B:3, C:5, D:4 },
-        Q7: { A:3, B:4, C:5, D:2 },
-        Q8_interpretation: { A:2, B:3, C:5, D:4 },
-        Q9:  { A:3, B:4, C:5, D:4 },
-        Q10: { A:3, B:5, C:4, D:4 },
-        Q11: { A:3, B:4, C:5, D:4 },
-        Q12: { A:5, B:4, C:3, D:4 },
-        Q13: { A:4, B:3, C:5, D:4 },
-        Q14: { A:5, B:4, C:3, D:4 },
-        Q15: { A:5, B:4, C:4, D:3 }
-      },
-      pillarMap: {
-        discernment: ["Q1","Q6","Q11"],
-        synthesis: ["Q2","Q7","Q12"],
-        composure: ["Q3","Q8","Q13"],
-        prioritization: ["Q4","Q9","Q14"],
-        learning: ["Q5","Q10","Q15"]
-      },
-      scenario3: ["Q11","Q12","Q13","Q14","Q15"]
-    };
+      Q6: { A:2, B:3, C:5, D:4 },
+      Q7: { A:3, B:4, C:5, D:2 },
+      Q8_interpretation: { A:2, B:3, C:5, D:4 },
+      Q9:  { A:3, B:4, C:5, D:4 },
+      Q10: { A:3, B:5, C:4, D:4 },
 
-    const questionnaire = [
+      Q11: { A:3, B:4, C:5, D:4 },
+      Q12: { A:5, B:4, C:3, D:4 },
+      Q13: { A:4, B:3, C:5, D:4 },
+      Q14: { A:5, B:4, C:3, D:4 },
+      Q15: { A:5, B:4, C:4, D:3 }
+    },
+
+    pillarMap: {
+      discernment: ["Q1","Q6","Q11"],
+      synthesis: ["Q2","Q7","Q12"],
+      composure: ["Q3","Q8","Q13"],
+      prioritization: ["Q4","Q9","Q14"],
+      learning: ["Q5","Q10","Q15"]
+    },
+
+    earlierScenarioQuestions: [
+      "Q1","Q2","Q3","Q4","Q5",
+      "Q6","Q7","Q8","Q9","Q10"
+    ],
+
+    pressureScenarioQuestions: [
+      "Q11","Q12","Q13","Q14","Q15"
+    ],
+
+    floorRules: [
       {
-        scenarioId: "S1",
-        title: "Scenario 1",
-        subtitle: "Operational Context",
-        context:
-          "You begin the week with several competing demands. Three direct reports need decisions to proceed. A customer issue has escalated but is not yet critical. A strategic deliverable is due in two weeks. You do not have enough time to engage deeply with everything this week.",
-        questions: [
-          { id:"Q1", type:"mcq", prompt:"Which question best defines the situation you need to evaluate?", options:[
-            {id:"A", text:"Which request should be handled first"},
-            {id:"B", text:"Which issues will create the most downstream impact if delayed"},
-            {id:"C", text:"How limited attention should be allocated across competing priorities"},
-            {id:"D", text:"Whether more information is needed before acting"}
-          ]},
-          { id:"Q2", type:"mcq", prompt:"Which signals are most important to interpret together?", options:[
-            {id:"A", text:"Urgency of incoming requests and stakeholder expectations"},
-            {id:"B", text:"Strategic importance and timing of consequences"},
-            {id:"C", text:"Team capability and operational constraints"},
-            {id:"D", text:"Immediate workload pressure"}
-          ]},
-          { id:"Q3", type:"composite", prompt:"How strong is your instinct to clear requests quickly to reduce pressure?",
-            minLabel:"Very weak", maxLabel:"Very strong",
-            followupPrompt:"Which best reflects how you interpret that instinct?",
-            followupOptions:[
-              {id:"A", text:"A useful signal about urgency"},
-              {id:"B", text:"A reaction to visible pressure that should be examined"},
-              {id:"C", text:"A signal that expectations may be misaligned"},
-              {id:"D", text:"A distraction that can distort evaluation"}
-            ]
-          },
-          { id:"Q4", type:"mcq", prompt:"Which tension most defines the situation?", options:[
-            {id:"A", text:"Responsiveness versus thoughtful prioritization"},
-            {id:"B", text:"Personal workload versus team development"},
-            {id:"C", text:"Strategic progress versus operational stability"},
-            {id:"D", text:"Speed of response versus depth of evaluation"}
-          ]},
-          { id:"Q5", type:"mcq", prompt:"Which assumption would you most want to test as the week unfolds?", options:[
-            {id:"A", text:"Whether stakeholder urgency reflects real downstream impact"},
-            {id:"B", text:"Whether your prioritization assumptions prove correct over time"},
-            {id:"C", text:"Whether team capability is stronger than expected"},
-            {id:"D", text:"Whether the situation changes once initial signals settle"}
-          ]}
-        ]
+        pillar: "discernment",
+        threshold: 3.0,
+        maxBand: 3,
+        reason: "Discernment below 3.0 caps final band at Functional."
       },
       {
-        scenarioId: "S2",
-        title: "Scenario 2",
-        subtitle: "Recurring Everyday Context",
-        context:
-          "Over the past several weeks you have noticed that a recurring type of decision keeps returning to you. These decisions are not high stakes but they require context and judgment. Handling them yourself ensures quality and speed. Letting others handle them may produce uneven results but could strengthen judgment capability over time.",
-        questions: [
-          { id:"Q6", type:"mcq", prompt:"What is the most important question to evaluate?", options:[
-            {id:"A", text:"Whether these decisions are important enough to address"},
-            {id:"B", text:"Whether the decisions should remain centralized"},
-            {id:"C", text:"Whether the pattern reflects a capability gap or a leadership pattern"},
-            {id:"D", text:"Whether delegation would create unnecessary risk"}
-          ]},
-          { id:"Q7", type:"mcq", prompt:"Which elements should be evaluated together?", options:[
-            {id:"A", text:"Frequency of these decisions and team experience"},
-            {id:"B", text:"Personal workload and development opportunities for others"},
-            {id:"C", text:"Short-term efficiency and long-term capability"},
-            {id:"D", text:"Personal preference and organizational expectations"}
-          ]},
-          { id:"Q8", type:"composite", prompt:"How strong is your instinct to handle these decisions yourself?",
-            minLabel:"Very weak", maxLabel:"Very strong",
-            followupPrompt:"How do you interpret that instinct?",
-            followupOptions:[
-              {id:"A", text:"As evidence that involvement is necessary"},
-              {id:"B", text:"As a signal that control may feel safer"},
-              {id:"C", text:"As a reaction worth examining before evaluating the situation"},
-              {id:"D", text:"As unrelated to the structure of the situation"}
-            ]
-          },
-          { id:"Q9", type:"mcq", prompt:"Which tension most defines the situation?", options:[
-            {id:"A", text:"Speed versus development"},
-            {id:"B", text:"Control versus capability building"},
-            {id:"C", text:"Efficiency versus learning"},
-            {id:"D", text:"Predictability versus experimentation"}
-          ]},
-          { id:"Q10", type:"mcq", prompt:"Which observation would most improve your evaluation?", options:[
-            {id:"A", text:"How often these decisions return"},
-            {id:"B", text:"Whether outcomes differ when others handle them"},
-            {id:"C", text:"Whether your involvement changes over time"},
-            {id:"D", text:"Whether the underlying pattern shifts"}
-          ]}
-        ]
+        pillar: "composure",
+        threshold: 3.0,
+        maxBand: 3,
+        reason: "Composure below 3.0 caps final band at Functional."
       },
       {
-        scenarioId: "S3",
-        title: "Scenario 3",
-        subtitle: "Stress and Ambiguity Context",
-        context:
-          "A public-facing issue emerges unexpectedly. Information is incomplete. Internal interpretations differ. External stakeholders are asking for a response. Acting quickly risks error, while waiting risks loss of trust.",
-        questions: [
-          { id:"Q11", type:"mcq", prompt:"What is the core situation to evaluate?", options:[
-            {id:"A", text:"Whether the issue requires immediate response"},
-            {id:"B", text:"How uncertainty should shape evaluation"},
-            {id:"C", text:"Whether the issue is primarily informational or reputational"},
-            {id:"D", text:"Whether additional facts will materially change interpretation"}
-          ]},
-          { id:"Q12", type:"mcq", prompt:"Which signals must be interpreted together?", options:[
-            {id:"A", text:"Available facts and potential implications"},
-            {id:"B", text:"Internal interpretations and external perception"},
-            {id:"C", text:"Speed of response and accuracy of information"},
-            {id:"D", text:"Organizational capability and stakeholder expectations"}
-          ]},
-          { id:"Q13", type:"mcq", prompt:"Which emotional pressure is most likely to influence evaluation?", options:[
-            {id:"A", text:"Fear of reputational damage"},
-            {id:"B", text:"Desire to demonstrate control"},
-            {id:"C", text:"Anxiety about incomplete information"},
-            {id:"D", text:"Concern about external perception"}
-          ]},
-          { id:"Q14", type:"mcq", prompt:"Which tension most defines the situation?", options:[
-            {id:"A", text:"Speed versus accuracy"},
-            {id:"B", text:"Transparency versus certainty"},
-            {id:"C", text:"Reassurance versus investigation"},
-            {id:"D", text:"Action versus interpretation"}
-          ]},
-          { id:"Q15", type:"mcq", prompt:"Which question would most improve your evaluation?", options:[
-            {id:"A", text:"What assumptions might be incorrect"},
-            {id:"B", text:"What signals may be misleading"},
-            {id:"C", text:"What consequences might unfold later"},
-            {id:"D", text:"What additional information would change interpretation"}
-          ]}
-        ]
+        pillar: "learning",
+        threshold: 2.5,
+        maxBand: 2,
+        reason: "Learning below 2.5 caps final band at Situational."
       }
-    ];
+    ]
+  };
 
-    const flat = [];
-    questionnaire.forEach(s => s.questions.forEach(q => flat.push({ scenario: s, q })));
+  let assessmentEmail = "";
+  let assessmentRole = "";
+  let assessmentStartMs = null;
 
-    document.addEventListener("DOMContentLoaded", () => {
-      const submissionForm = document.getElementById("submissionForm");
-      const laterForm = document.getElementById("takeLaterForm");
-      const startForm = document.getElementById("startNowForm");
-      const shareForm = document.getElementById("shareForm");
+  let currentIndex = 0;
+  const answers = {};
+  let lastComputedResults = null;
 
-      if (submissionForm) submissionForm.action = APPS_SCRIPT_URL;
-      if (laterForm) laterForm.action = APPS_SCRIPT_URL;
-      if (startForm) startForm.action = APPS_SCRIPT_URL;
-      if (shareForm) shareForm.action = APPS_SCRIPT_URL;
+  const questionnaire = [
+    {
+      scenarioId: "S1",
+      title: "Scenario 1",
+      subtitle: "Operational Context",
+      context:
+        "You begin the week with several competing demands. Three direct reports need decisions to proceed. A customer issue has escalated but is not yet critical. A strategic deliverable is due in two weeks. You do not have enough time to engage deeply with everything this week.",
+      questions: [
+        { id:"Q1", type:"mcq", prompt:"Which question best defines the situation you need to evaluate?", options:[
+          {id:"A", text:"Which request should be handled first"},
+          {id:"B", text:"Which issues will create the most downstream impact if delayed"},
+          {id:"C", text:"How limited attention should be allocated across competing priorities"},
+          {id:"D", text:"Whether more information is needed before acting"}
+        ]},
+        { id:"Q2", type:"mcq", prompt:"Which signals are most important to interpret together?", options:[
+          {id:"A", text:"Urgency of incoming requests and stakeholder expectations"},
+          {id:"B", text:"Strategic importance and timing of consequences"},
+          {id:"C", text:"Team capability and operational constraints"},
+          {id:"D", text:"Immediate workload pressure"}
+        ]},
+        { id:"Q3", type:"composite", prompt:"How strong is your instinct to clear requests quickly to reduce pressure?",
+          minLabel:"Very weak", maxLabel:"Very strong",
+          followupPrompt:"Which best reflects how you interpret that instinct?",
+          followupOptions:[
+            {id:"A", text:"A useful signal about urgency"},
+            {id:"B", text:"A reaction to visible pressure that should be examined"},
+            {id:"C", text:"A signal that expectations may be misaligned"},
+            {id:"D", text:"A distraction that can distort evaluation"}
+          ]
+        },
+        { id:"Q4", type:"mcq", prompt:"Which tension most defines the situation?", options:[
+          {id:"A", text:"Responsiveness versus thoughtful prioritization"},
+          {id:"B", text:"Personal workload versus team development"},
+          {id:"C", text:"Strategic progress versus operational stability"},
+          {id:"D", text:"Speed of response versus depth of evaluation"}
+        ]},
+        { id:"Q5", type:"mcq", prompt:"Which assumption would you most want to test as the week unfolds?", options:[
+          {id:"A", text:"Whether stakeholder urgency reflects real downstream impact"},
+          {id:"B", text:"Whether your prioritization assumptions prove correct over time"},
+          {id:"C", text:"Whether team capability is stronger than expected"},
+          {id:"D", text:"Whether the situation changes once initial signals settle"}
+        ]}
+      ]
+    },
+    {
+      scenarioId: "S2",
+      title: "Scenario 2",
+      subtitle: "Recurring Everyday Context",
+      context:
+        "Over the past several weeks you have noticed that a recurring type of decision keeps returning to you. These decisions are not high stakes but they require context and judgment. Handling them yourself ensures quality and speed. Letting others handle them may produce uneven results but could strengthen judgment capability over time.",
+      questions: [
+        { id:"Q6", type:"mcq", prompt:"What is the most important question to evaluate?", options:[
+          {id:"A", text:"Whether these decisions are important enough to address"},
+          {id:"B", text:"Whether the decisions should remain centralized"},
+          {id:"C", text:"Whether the pattern reflects a capability gap or a leadership pattern"},
+          {id:"D", text:"Whether delegation would create unnecessary risk"}
+        ]},
+        { id:"Q7", type:"mcq", prompt:"Which elements should be evaluated together?", options:[
+          {id:"A", text:"Frequency of these decisions and team experience"},
+          {id:"B", text:"Personal workload and development opportunities for others"},
+          {id:"C", text:"Short-term efficiency and long-term capability"},
+          {id:"D", text:"Personal preference and organizational expectations"}
+        ]},
+        { id:"Q8", type:"composite", prompt:"How strong is your instinct to handle these decisions yourself?",
+          minLabel:"Very weak", maxLabel:"Very strong",
+          followupPrompt:"How do you interpret that instinct?",
+          followupOptions:[
+            {id:"A", text:"As evidence that involvement is necessary"},
+            {id:"B", text:"As a signal that control may feel safer"},
+            {id:"C", text:"As a reaction worth examining before evaluating the situation"},
+            {id:"D", text:"As unrelated to the structure of the situation"}
+          ]
+        },
+        { id:"Q9", type:"mcq", prompt:"Which tension most defines the situation?", options:[
+          {id:"A", text:"Speed versus development"},
+          {id:"B", text:"Control versus capability building"},
+          {id:"C", text:"Efficiency versus learning"},
+          {id:"D", text:"Predictability versus experimentation"}
+        ]},
+        { id:"Q10", type:"mcq", prompt:"Which observation would most improve your evaluation?", options:[
+          {id:"A", text:"How often these decisions return"},
+          {id:"B", text:"Whether outcomes differ when others handle them"},
+          {id:"C", text:"Whether your involvement changes over time"},
+          {id:"D", text:"Whether the underlying pattern shifts"}
+        ]}
+      ]
+    },
+    {
+      scenarioId: "S3",
+      title: "Scenario 3",
+      subtitle: "Stress and Ambiguity Context",
+      context:
+        "A public-facing issue emerges unexpectedly. Information is incomplete. Internal interpretations differ. External stakeholders are asking for a response. Acting quickly risks error, while waiting risks loss of trust.",
+      questions: [
+        { id:"Q11", type:"mcq", prompt:"What is the core situation to evaluate?", options:[
+          {id:"A", text:"Whether the issue requires immediate response"},
+          {id:"B", text:"How uncertainty should shape evaluation"},
+          {id:"C", text:"Whether the issue is primarily informational or reputational"},
+          {id:"D", text:"Whether additional facts will materially change interpretation"}
+        ]},
+        { id:"Q12", type:"mcq", prompt:"Which signals must be interpreted together?", options:[
+          {id:"A", text:"Available facts and potential implications"},
+          {id:"B", text:"Internal interpretations and external perception"},
+          {id:"C", text:"Speed of response and accuracy of information"},
+          {id:"D", text:"Organizational capability and stakeholder expectations"}
+        ]},
+        { id:"Q13", type:"mcq", prompt:"Which emotional pressure is most likely to influence evaluation?", options:[
+          {id:"A", text:"Fear of reputational damage"},
+          {id:"B", text:"Desire to demonstrate control"},
+          {id:"C", text:"Anxiety about incomplete information"},
+          {id:"D", text:"Concern about external perception"}
+        ]},
+        { id:"Q14", type:"mcq", prompt:"Which tension most defines the situation?", options:[
+          {id:"A", text:"Speed versus accuracy"},
+          {id:"B", text:"Transparency versus certainty"},
+          {id:"C", text:"Reassurance versus investigation"},
+          {id:"D", text:"Action versus interpretation"}
+        ]},
+        { id:"Q15", type:"mcq", prompt:"Which question would most improve your evaluation?", options:[
+          {id:"A", text:"What assumptions might be incorrect"},
+          {id:"B", text:"What signals may be misleading"},
+          {id:"C", text:"What consequences might unfold later"},
+          {id:"D", text:"What additional information would change interpretation"}
+        ]}
+      ]
+    }
+  ];
 
-      const params = new URLSearchParams(window.location.search);
-      const startNow = params.get("start") === "now" || params.get("mode") === "now";
-      if (startNow) showTakeNowForm();
+  const flat = [];
+  questionnaire.forEach(s => s.questions.forEach(q => flat.push({ scenario: s, q })));
 
-      document.addEventListener("keydown", (e) => {
-        if (e.key === "Escape") closeShareModal();
+  document.addEventListener("DOMContentLoaded", () => {
+    const submissionForm = document.getElementById("submissionForm");
+    const laterForm = document.getElementById("takeLaterForm");
+    const startForm = document.getElementById("startNowForm");
+    const shareForm = document.getElementById("shareForm");
+
+    if (submissionForm) submissionForm.action = APPS_SCRIPT_URL;
+    if (laterForm) laterForm.action = APPS_SCRIPT_URL;
+    if (startForm) startForm.action = APPS_SCRIPT_URL;
+    if (shareForm) shareForm.action = APPS_SCRIPT_URL;
+
+    const params = new URLSearchParams(window.location.search);
+    const startNow = params.get("start") === "now" || params.get("mode") === "now";
+    if (startNow) showTakeNowForm();
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") closeShareModal();
+    });
+  });
+
+  function showIntroMessage() {
+    const introMessage = document.getElementById("intro-message");
+    if (introMessage) introMessage.style.display = "block";
+  }
+
+  function hideIntroMessage() {
+    const introMessage = document.getElementById("intro-message");
+    if (introMessage) introMessage.style.display = "none";
+  }
+
+  function backToIntroChoices() {
+    showIntroMessage();
+    document.getElementById("intro-choices").style.display = "flex";
+    document.getElementById("intro-later-form").style.display = "none";
+    document.getElementById("intro-now-form").style.display = "none";
+    document.getElementById("intro-later-thanks").style.display = "none";
+  }
+
+  function showTakeLaterForm() {
+    hideIntroMessage();
+    document.getElementById("intro-choices").style.display = "none";
+    document.getElementById("intro-now-form").style.display = "none";
+    document.getElementById("intro-later-thanks").style.display = "none";
+    document.getElementById("intro-later-form").style.display = "block";
+  }
+
+  function showTakeNowForm() {
+    hideIntroMessage();
+    document.getElementById("intro-choices").style.display = "none";
+    document.getElementById("intro-later-form").style.display = "none";
+    document.getElementById("intro-later-thanks").style.display = "none";
+    document.getElementById("intro-now-form").style.display = "block";
+  }
+
+  function submitTakeLaterEmail() {
+    const emailInput = document.getElementById("reminderEmail");
+    const email = (emailInput.value || "").trim();
+
+    if (!email) {
+      alert("Please enter your email address so we can send you the assessment link.");
+      emailInput.focus();
+      return;
+    }
+
+    if (!validateEmail(email)) {
+      alert("Please enter a valid email address.");
+      emailInput.focus();
+      return;
+    }
+
+    document.getElementById("takeLaterEmail").value = email;
+    document.getElementById("takeLaterForm").submit();
+
+    document.getElementById("intro-later-form").style.display = "none";
+    document.getElementById("intro-later-thanks").style.display = "block";
+    emailInput.value = "";
+  }
+
+  function submitTakeNowEmail() {
+    const emailInput = document.getElementById("startNowEmail");
+    const roleInput = document.getElementById("startNowRole");
+
+    const email = (emailInput.value || "").trim();
+    const role = (roleInput.value || "").trim();
+
+    if (!email) {
+      alert("Please enter your email address to start the assessment.");
+      emailInput.focus();
+      return;
+    }
+
+    if (!validateEmail(email)) {
+      alert("Please enter a valid email address.");
+      emailInput.focus();
+      return;
+    }
+
+    if (!role) {
+      alert("Please enter your role/title to start the assessment.");
+      roleInput.focus();
+      return;
+    }
+
+    assessmentEmail = email;
+    assessmentRole = role;
+    assessmentStartMs = Date.now();
+
+    document.getElementById("userEmail").value = email;
+    document.getElementById("userRole").value = role;
+
+    document.getElementById("startNowHiddenEmail").value = email;
+    document.getElementById("startNowHiddenRole").value = role;
+    document.getElementById("startNowForm").submit();
+
+    document.getElementById("intro-screen").style.display = "none";
+    document.getElementById("assessment-screen").style.display = "block";
+
+    currentIndex = 0;
+    showQuestionFlow();
+    renderCurrent();
+
+    emailInput.value = "";
+    roleInput.value = "";
+    scrollToTopOfCard_();
+  }
+
+  function showQuestionFlow() {
+    document.getElementById("questionFlow").style.display = "block";
+    document.getElementById("completedScreen").style.display = "none";
+    document.getElementById("results").style.display = "none";
+  }
+
+  function showStandaloneCompleted() {
+    document.getElementById("questionFlow").style.display = "none";
+    document.getElementById("results").style.display = "none";
+    document.getElementById("completedScreen").style.display = "block";
+    scrollToTopOfCard_();
+  }
+
+  function showStandaloneResults() {
+    document.getElementById("questionFlow").style.display = "none";
+    document.getElementById("completedScreen").style.display = "none";
+    document.getElementById("results").style.display = "block";
+    scrollToTopOfCard_();
+  }
+
+  function scrollToTopOfCard_() {
+    const wrapper = document.querySelector(".assessment-wrapper");
+    window.scrollTo({ top: wrapper.offsetTop, behavior: "smooth" });
+  }
+
+  function renderCurrent() {
+    const item = flat[currentIndex];
+    const scenario = item.scenario;
+    const q = item.q;
+
+    document.getElementById("scenarioCard").style.display = "block";
+    document.getElementById("scenarioTitle").textContent = scenario.title;
+
+    const subtitleEl = document.getElementById("scenarioSubtitle");
+    subtitleEl.textContent = scenario.subtitle || "";
+    subtitleEl.style.display = scenario.subtitle ? "block" : "none";
+
+    document.getElementById("scenarioContext").textContent = scenario.context;
+
+    const scenarioIdx = questionnaire.findIndex(s => s.scenarioId === scenario.scenarioId) + 1;
+    document.getElementById("progressScenario").textContent = `Scenario ${scenarioIdx} of 3`;
+
+    const localIndex = scenario.questions.findIndex(qq => qq.id === q.id) + 1;
+    const localTotal = scenario.questions.length;
+
+    document.getElementById("progressCount").textContent = `Question ${localIndex} of ${localTotal}`;
+    document.getElementById("questionHeader").textContent = `Question ${localIndex}`;
+
+    const pct = Math.round((currentIndex / Math.max(1, flat.length - 1)) * 100);
+    document.getElementById("progressBarFill").style.width = `${pct}%`;
+
+    document.getElementById("questionPrompt").textContent = q.prompt;
+
+    const optionsWrap = document.getElementById("questionOptions");
+    optionsWrap.innerHTML = "";
+
+    const existing = answers[q.id];
+
+    if (q.type === "mcq") {
+      renderMcq_(q, existing, optionsWrap);
+    } else if (q.type === "composite") {
+      renderComposite_(q, existing, optionsWrap);
+    }
+
+    const prev = document.getElementById("btnPrev");
+    prev.disabled = currentIndex === 0;
+    prev.classList.toggle("btn-disabled", currentIndex === 0);
+
+    const next = document.getElementById("btnNext");
+    next.textContent = currentIndex === flat.length - 1 ? "Finish" : "Next";
+  }
+
+  function renderMcq_(q, existing, wrap) {
+    const opts = document.createElement("div");
+    opts.className = "options";
+
+    q.options.forEach(opt => {
+      const row = document.createElement("label");
+      row.className = "option";
+
+      const radio = document.createElement("input");
+      radio.type = "radio";
+      radio.name = q.id;
+      radio.value = opt.id;
+
+      if (existing && existing.choiceId === opt.id) radio.checked = true;
+
+      radio.addEventListener("change", () => {
+        const score = scoreForMcq_(q.id, opt.id);
+        answers[q.id] = {
+          choiceId: opt.id,
+          score,
+          meta: { optionText: opt.text }
+        };
+        setNextEnabled(true);
       });
+
+      const text = document.createElement("div");
+      text.className = "opt-text";
+      text.textContent = opt.text;
+
+      row.appendChild(radio);
+      row.appendChild(text);
+      opts.appendChild(row);
     });
 
-    function showIntroMessage() {
-      const introMessage = document.getElementById("intro-message");
-      if (introMessage) introMessage.style.display = "block";
+    wrap.appendChild(opts);
+    setNextEnabled(!!(existing && existing.choiceId));
+  }
+
+  function renderComposite_(q, existing, wrap) {
+    wrap.innerHTML = "";
+
+    const compositeState = existing && existing.meta
+      ? existing.meta
+      : { likert: null, interpretation: null };
+
+    const step1 = document.createElement("div");
+    step1.className = "note";
+    step1.style.margin = "0 0 0.35rem 0";
+    step1.style.color = "#222";
+    step1.style.fontWeight = "700";
+    step1.textContent = "Step 1: Rate Your Instinct";
+
+    const likert = document.createElement("div");
+    likert.className = "likert-row";
+
+    for (let i = 1; i <= 5; i++) {
+      const pill = document.createElement("div");
+      pill.className = "likert-pill" + (compositeState.likert === i ? " selected" : "");
+      pill.textContent = String(i);
+
+      pill.addEventListener("click", () => {
+        compositeState.likert = i;
+        persistComposite_(q.id, compositeState);
+        renderComposite_(q, answers[q.id], wrap);
+      });
+
+      likert.appendChild(pill);
     }
 
-    function hideIntroMessage() {
-      const introMessage = document.getElementById("intro-message");
-      if (introMessage) introMessage.style.display = "none";
+    const labels = document.createElement("div");
+    labels.className = "likert-labels";
+    labels.innerHTML = `<span>${q.minLabel || ""}</span><span>${q.maxLabel || ""}</span>`;
+
+    wrap.appendChild(step1);
+    wrap.appendChild(likert);
+    wrap.appendChild(labels);
+
+    const step2 = document.createElement("div");
+    step2.className = "note";
+    step2.style.margin = "0.85rem 0 0.35rem 0";
+    step2.style.color = "#222";
+    step2.style.fontWeight = "700";
+    step2.textContent = "Step 2: Interpret Your Instinct";
+
+    const followPrompt = document.createElement("div");
+    followPrompt.className = "question-prompt";
+    followPrompt.style.margin = "0 0 0.55rem 0";
+    followPrompt.textContent = q.followupPrompt;
+
+    const opts = document.createElement("div");
+    opts.className = "options";
+
+    const isPartBEnabled = compositeState.likert !== null;
+
+    q.followupOptions.forEach(opt => {
+      const row = document.createElement("label");
+      row.className = "option";
+      row.style.opacity = isPartBEnabled ? "1" : "0.55";
+
+      const radio = document.createElement("input");
+      radio.type = "radio";
+      radio.name = q.id + "_interp";
+      radio.value = opt.id;
+      radio.disabled = !isPartBEnabled;
+
+      if (compositeState.interpretation === opt.id) radio.checked = true;
+
+      radio.addEventListener("change", () => {
+        compositeState.interpretation = opt.id;
+        persistComposite_(q.id, compositeState);
+        setNextEnabled(true);
+      });
+
+      const text = document.createElement("div");
+      text.className = "opt-text";
+      text.textContent = opt.text;
+
+      row.appendChild(radio);
+      row.appendChild(text);
+      opts.appendChild(row);
+    });
+
+    wrap.appendChild(step2);
+    wrap.appendChild(followPrompt);
+    wrap.appendChild(opts);
+
+    const ready = compositeState.likert !== null && !!compositeState.interpretation;
+    setNextEnabled(ready);
+  }
+
+  function persistComposite_(qid, st) {
+    if (st.likert === null || !st.interpretation) {
+      answers[qid] = {
+        choiceId: st.likert ? String(st.likert) : "",
+        score: NaN,
+        meta: st
+      };
+      setNextEnabled(false);
+      return;
     }
 
-    function backToIntroChoices() {
-      showIntroMessage();
-      document.getElementById("intro-choices").style.display = "flex";
-      document.getElementById("intro-later-form").style.display = "none";
-      document.getElementById("intro-now-form").style.display = "none";
-      document.getElementById("intro-later-thanks").style.display = "none";
-    }
+    const interpScore = scoreForCompositeInterpretation_(qid, st.interpretation);
+    const score = averageRaw([Number(st.likert), Number(interpScore)]);
 
-    function showTakeLaterForm() {
-      hideIntroMessage();
-      document.getElementById("intro-choices").style.display = "none";
-      document.getElementById("intro-now-form").style.display = "none";
-      document.getElementById("intro-later-thanks").style.display = "none";
-      document.getElementById("intro-later-form").style.display = "block";
-    }
+    answers[qid] = {
+      choiceId: `${st.likert}/${st.interpretation}`,
+      score,
+      meta: st
+    };
+  }
 
-    function showTakeNowForm() {
-      hideIntroMessage();
-      document.getElementById("intro-choices").style.display = "none";
-      document.getElementById("intro-later-form").style.display = "none";
-      document.getElementById("intro-later-thanks").style.display = "none";
-      document.getElementById("intro-now-form").style.display = "block";
-    }
+  function scoreForMcq_(qid, choiceId) {
+    const map = JQ_V2_SCORING.questionScores[qid];
+    if (!map) return NaN;
+    return Number(map[choiceId]);
+  }
 
-    function submitTakeLaterEmail() {
-      const emailInput = document.getElementById("reminderEmail");
-      const email = (emailInput.value || "").trim();
+  function scoreForCompositeInterpretation_(qid, choiceId) {
+    const map = JQ_V2_SCORING.questionScores[`${qid}_interpretation`];
+    if (!map) return NaN;
+    return Number(map[choiceId]);
+  }
 
-      if (!email) { alert("Please enter your email address so we can send you the assessment link."); emailInput.focus(); return; }
-      if (!validateEmail(email)) { alert("Please enter a valid email address (e.g., name@example.com)."); emailInput.focus(); return; }
+  function setNextEnabled(enabled) {
+    const btn = document.getElementById("btnNext");
+    btn.disabled = !enabled;
+    btn.classList.toggle("btn-disabled", !enabled);
+  }
 
-      const laterForm = document.getElementById("takeLaterForm");
-      document.getElementById("takeLaterEmail").value = email;
-      laterForm.submit();
-
-      document.getElementById("intro-later-form").style.display = "none";
-      document.getElementById("intro-later-thanks").style.display = "block";
-      emailInput.value = "";
-    }
-
-    function submitTakeNowEmail() {
-      const emailInput = document.getElementById("startNowEmail");
-      const roleInput = document.getElementById("startNowRole");
-
-      const email = (emailInput.value || "").trim();
-      const role = (roleInput.value || "").trim();
-
-      if (!email) { alert("Please enter your email address to start the assessment."); emailInput.focus(); return; }
-      if (!validateEmail(email)) { alert("Please enter a valid email address (e.g., name@example.com)."); emailInput.focus(); return; }
-      if (!role) { alert("Please enter your role/title to start the assessment."); roleInput.focus(); return; }
-
-      assessmentEmail = email;
-      assessmentRole = role;
-      assessmentStartMs = Date.now();
-
-      document.getElementById("userEmail").value = email;
-      document.getElementById("userRole").value = role;
-
-      const startForm = document.getElementById("startNowForm");
-      document.getElementById("startNowHiddenEmail").value = email;
-      document.getElementById("startNowHiddenRole").value = role;
-      startForm.submit();
-
-      document.getElementById("intro-screen").style.display = "none";
-      document.getElementById("assessment-screen").style.display = "block";
-
-      currentIndex = 0;
-      showQuestionFlow();
+  function prevQuestion() {
+    if (currentIndex > 0) {
+      currentIndex -= 1;
       renderCurrent();
+    }
+  }
 
-      emailInput.value = "";
-      roleInput.value = "";
-      scrollToTopOfCard_();
+  function nextQuestion() {
+    const q = flat[currentIndex].q;
+    const a = answers[q.id];
+
+    if (!a) return;
+    if (q.type === "composite" && !isFinite(a.score)) return;
+
+    if (currentIndex < flat.length - 1) {
+      currentIndex += 1;
+      renderCurrent();
+    } else {
+      finishAssessment();
+    }
+  }
+
+  function finishAssessment() {
+    const email = assessmentEmail || (document.getElementById("userEmail").value || "").trim();
+    const role = assessmentRole || (document.getElementById("userRole").value || "").trim();
+
+    if (!email || !validateEmail(email)) {
+      alert("Email is missing or invalid. Please restart and enter a valid email.");
+      return;
     }
 
-    function showQuestionFlow() {
-      document.getElementById("questionFlow").style.display = "block";
-      document.getElementById("completedScreen").style.display = "none";
-      document.getElementById("results").style.display = "none";
+    if (!role) {
+      alert("Role/title is missing. Please restart and enter your role/title.");
+      return;
     }
 
-    function showStandaloneCompleted() {
-      document.getElementById("questionFlow").style.display = "none";
-      document.getElementById("results").style.display = "none";
-      document.getElementById("completedScreen").style.display = "block";
-      scrollToTopOfCard_();
-    }
+    for (const item of flat) {
+      const qid = item.q.id;
+      const a = answers[qid];
 
-    function showStandaloneResults() {
-      document.getElementById("questionFlow").style.display = "none";
-      document.getElementById("completedScreen").style.display = "none";
-      document.getElementById("results").style.display = "block";
-      scrollToTopOfCard_();
-    }
-
-    function scrollToTopOfCard_() {
-      const wrapper = document.querySelector(".assessment-wrapper");
-      window.scrollTo({ top: wrapper.offsetTop, behavior: "smooth" });
-    }
-
-    function renderCurrent() {
-      const item = flat[currentIndex];
-      const scenario = item.scenario;
-      const q = item.q;
-
-      const scenarioCard = document.getElementById("scenarioCard");
-      scenarioCard.style.display = "block";
-      document.getElementById("scenarioTitle").textContent = `${scenario.title}`;
-      const subtitleEl = document.getElementById("scenarioSubtitle");
-      subtitleEl.textContent = scenario.subtitle || "";
-      subtitleEl.style.display = scenario.subtitle ? "block" : "none";
-      document.getElementById("scenarioContext").textContent = scenario.context;
-
-      const scenarioIdx = questionnaire.findIndex(s => s.scenarioId === scenario.scenarioId) + 1;
-      document.getElementById("progressScenario").textContent = `Scenario ${scenarioIdx} of 3`;
-
-      const localIndex = (scenario.questions || []).findIndex(qq => qq.id === q.id) + 1;
-      const localTotal = (scenario.questions || []).length || 0;
-
-      document.getElementById("progressCount").textContent = `Question ${localIndex} of ${localTotal}`;
-      document.getElementById("questionHeader").textContent = `Question ${localIndex}`;
-
-      const pct = Math.round((currentIndex / Math.max(1, (flat.length - 1))) * 100);
-      document.getElementById("progressBarFill").style.width = `${pct}%`;
-
-      document.getElementById("questionPrompt").textContent = q.prompt;
-      document.getElementById("questionPrompt").style.display = "block";
-
-      const optionsWrap = document.getElementById("questionOptions");
-      optionsWrap.innerHTML = "";
-
-      const existing = answers[q.id];
-
-      if (q.type === "mcq") {
-        renderMcq_(q, existing, optionsWrap);
-      } else if (q.type === "composite") {
-        renderComposite_(q, existing, optionsWrap);
-      } else {
-        optionsWrap.innerHTML = "<div class='note'>Unsupported question type.</div>";
-        setNextEnabled(false);
-      }
-
-      const prev = document.getElementById("btnPrev");
-      prev.disabled = (currentIndex === 0);
-      prev.classList.toggle("btn-disabled", currentIndex === 0);
-
-      const next = document.getElementById("btnNext");
-      next.textContent = (currentIndex === flat.length - 1) ? "Finish" : "Next";
-    }
-
-    function renderMcq_(q, existing, wrap) {
-      const opts = document.createElement("div");
-      opts.className = "options";
-
-      q.options.forEach(opt => {
-        const row = document.createElement("label");
-        row.className = "option";
-
-        const radio = document.createElement("input");
-        radio.type = "radio";
-        radio.name = q.id;
-        radio.value = opt.id;
-        if (existing && existing.choiceId === opt.id) radio.checked = true;
-
-        radio.addEventListener("change", () => {
-          const score = scoreForMcq_(q.id, opt.id);
-          answers[q.id] = { choiceId: opt.id, score: score, meta: { optionText: opt.text } };
-          setNextEnabled(true);
-        });
-
-        const text = document.createElement("div");
-        text.className = "opt-text";
-        text.textContent = opt.text;
-
-        row.appendChild(radio);
-        row.appendChild(text);
-        opts.appendChild(row);
-      });
-
-      wrap.appendChild(opts);
-      setNextEnabled(!!(existing && existing.choiceId));
-    }
-
-    function renderComposite_(q, existing, wrap) {
-      wrap.innerHTML = "";
-
-      const compositeState = existing && existing.meta ? existing.meta : { likert: null, interpretation: null };
-
-      const pA = document.createElement("div");
-      pA.className = "note";
-      pA.style.margin = "0 0 0.35rem 0";
-      pA.style.color = "#222";
-      pA.style.fontWeight = "700";
-      pA.textContent = "Step 1: Rate Your Instinct";
-
-      const likert = document.createElement("div");
-      likert.className = "likert-row";
-
-      for (let i=1; i<=5; i++) {
-        const pill = document.createElement("div");
-        pill.className = "likert-pill" + (compositeState.likert === i ? " selected" : "");
-        pill.textContent = String(i);
-
-        pill.addEventListener("click", () => {
-          likert.querySelectorAll(".likert-pill").forEach(p => p.classList.remove("selected"));
-          pill.classList.add("selected");
-          compositeState.likert = i;
-          persistComposite_(q.id, compositeState);
-          renderComposite_(q, answers[q.id], wrap);
-        });
-
-        likert.appendChild(pill);
-      }
-
-      const labels = document.createElement("div");
-      labels.className = "likert-labels";
-      labels.innerHTML = `<span>${q.minLabel || ""}</span><span>${q.maxLabel || ""}</span>`;
-
-      wrap.appendChild(pA);
-      wrap.appendChild(likert);
-      wrap.appendChild(labels);
-
-      const pB = document.createElement("div");
-      pB.className = "note";
-      pB.style.margin = "0.85rem 0 0.35rem 0";
-      pB.style.color = "#222";
-      pB.style.fontWeight = "700";
-      pB.textContent = "Step 2: Interpret Your Instinct";
-
-      const followPrompt = document.createElement("div");
-      followPrompt.className = "question-prompt";
-      followPrompt.style.margin = "0 0 0.55rem 0";
-      followPrompt.textContent = q.followupPrompt;
-
-      const opts = document.createElement("div");
-      opts.className = "options";
-
-      const isPartBEnabled = compositeState.likert !== null;
-
-      q.followupOptions.forEach(opt => {
-        const row = document.createElement("label");
-        row.className = "option";
-        row.style.opacity = isPartBEnabled ? "1" : "0.55";
-
-        const radio = document.createElement("input");
-        radio.type = "radio";
-        radio.name = q.id + "_interp";
-        radio.value = opt.id;
-        radio.disabled = !isPartBEnabled;
-        if (compositeState.interpretation === opt.id) radio.checked = true;
-
-        radio.addEventListener("change", () => {
-          compositeState.interpretation = opt.id;
-          persistComposite_(q.id, compositeState);
-          setNextEnabled(true);
-        });
-
-        const text = document.createElement("div");
-        text.className = "opt-text";
-        text.textContent = opt.text;
-
-        row.appendChild(radio);
-        row.appendChild(text);
-        opts.appendChild(row);
-      });
-
-      wrap.appendChild(pB);
-      wrap.appendChild(followPrompt);
-      wrap.appendChild(opts);
-
-      const ready = compositeState.likert !== null && !!compositeState.interpretation;
-      setNextEnabled(ready);
-    }
-
-    function persistComposite_(qid, st) {
-      if (st.likert === null) {
-        answers[qid] = { choiceId: "", score: NaN, meta: st };
-        setNextEnabled(false);
+      if (!a || !isFinite(a.score)) {
+        alert("Please answer all questions before finishing.");
         return;
       }
-      if (!st.interpretation) {
-        answers[qid] = { choiceId: String(st.likert), score: NaN, meta: st };
-        setNextEnabled(false);
-        return;
-      }
-
-      const interpScore = scoreForCompositeInterpretation_(qid, st.interpretation);
-      const score = average([Number(st.likert), Number(interpScore)]);
-      answers[qid] = { choiceId: `${st.likert}/${st.interpretation}`, score, meta: st };
     }
 
-    function scoreForMcq_(qid, choiceId) {
-      const map = V2.questionScores[qid];
-      if (!map) return NaN;
-      return Number(map[choiceId]);
+    let result;
+
+    try {
+      result = calculateJQ(answers);
+    } catch (err) {
+      alert("There was an issue calculating your score. Please review all answers.");
+      console.error(err);
+      return;
     }
 
-    function scoreForCompositeInterpretation_(qid, choiceId) {
-      if (qid === "Q3") return Number(V2.questionScores["Q3_interpretation"][choiceId]);
-      if (qid === "Q8") return Number(V2.questionScores["Q8_interpretation"][choiceId]);
-      return NaN;
-    }
+    const dev = buildDevelopmentNarrative_(result);
 
-    function setNextEnabled(enabled) {
-      const btn = document.getElementById("btnNext");
-      btn.disabled = !enabled;
-      btn.classList.toggle("btn-disabled", !enabled);
-    }
+    submitToAppsScriptV2_(email, role, result, dev);
 
-    function prevQuestion() {
-      if (currentIndex > 0) {
-        currentIndex -= 1;
-        renderCurrent();
-      }
-    }
+    lastComputedResults = {
+      email,
+      role,
+      ...result,
+      dev
+    };
 
-    function nextQuestion() {
-      const q = flat[currentIndex].q;
-      const a = answers[q.id];
-      if (!a) return;
+    showStandaloneCompleted();
+  }
 
-      if (q.type === "composite" && !isFinite(a.score)) return;
+  function calculateJQ(responses) {
+    const questionScores = {};
 
-      if (currentIndex < flat.length - 1) {
-        currentIndex += 1;
-        renderCurrent();
-      } else {
-        finishAssessment();
-      }
-    }
+    for (let i = 1; i <= 15; i++) {
+      const qid = `Q${i}`;
+      const response = responses[qid];
 
-    function finishAssessment() {
-      const email = assessmentEmail || (document.getElementById("userEmail").value || "").trim();
-      const role = assessmentRole || (document.getElementById("userRole").value || "").trim();
+      if (!response) throw new Error(`Missing response for ${qid}`);
 
-      if (!email || !validateEmail(email)) {
-        alert("Email is missing or invalid. Please restart and enter a valid email.");
-        return;
-      }
-      if (!role) {
-        alert("Role/title is missing. Please restart and enter your role/title.");
-        return;
-      }
+      if (qid === "Q3" || qid === "Q8") {
+        const likert = Number(response.meta && response.meta.likert);
+        const interpretation = response.meta && response.meta.interpretation;
 
-      for (const item of flat) {
-        const qid = item.q.id;
-        const a = answers[qid];
-        if (!a || !isFinite(a.score)) {
-          alert("Please answer all questions before finishing.");
-          return;
+        if (!isFinite(likert) || !interpretation) {
+          throw new Error(`Invalid composite response for ${qid}`);
         }
+
+        const interpretationScore =
+          JQ_V2_SCORING.questionScores[`${qid}_interpretation`][interpretation];
+
+        questionScores[qid] = averageRaw([likert, interpretationScore]);
+      } else {
+        const choiceId = response.choiceId;
+
+        if (!choiceId) throw new Error(`Missing choice for ${qid}`);
+
+        questionScores[qid] = JQ_V2_SCORING.questionScores[qid][choiceId];
       }
 
-      const pillarScores = {};
-      Object.keys(V2.pillarMap).forEach(p => {
-        const qids = V2.pillarMap[p];
-        const vals = qids.map(qid => Number(answers[qid].score)).filter(v => isFinite(v));
-        pillarScores[p] = average(vals);
-      });
-
-      const stabilityVals = V2.scenario3.map(qid => Number(answers[qid].score)).filter(v => isFinite(v));
-      const stability = average(stabilityVals);
-
-      let overall = average(Object.keys(V2.pillarMap).map(p => pillarScores[p]).filter(v => isFinite(v)));
-
-      let penaltyApplied = "No";
-      const diff = overall - stability;
-      if (isFinite(diff) && diff >= V2.stabilityRule.penalty_threshold) {
-        overall = overall - V2.stabilityRule.penalty_value;
-        penaltyApplied = "Yes";
+      if (!isFinite(questionScores[qid])) {
+        throw new Error(`Invalid score calculated for ${qid}`);
       }
+    }
 
-      let band = bandFromOverall_(overall);
+    const pillarScoresRaw = {};
 
-      V2.floorRules.forEach(rule => {
-        const v = pillarScores[rule.pillar];
-        if (isFinite(v) && v < rule.threshold) {
-          band = Math.min(band, rule.maxBand);
-        }
-      });
+    Object.keys(JQ_V2_SCORING.pillarMap).forEach(pillar => {
+      const qids = JQ_V2_SCORING.pillarMap[pillar];
+      pillarScoresRaw[pillar] = averageRaw(qids.map(qid => questionScores[qid]));
+    });
 
-      const pillarOrder = ["discernment","synthesis","composure","prioritization","learning"];
-      const ranked = pillarOrder
-        .map(p => ({ p, v: pillarScores[p] }))
-        .filter(x => isFinite(x.v))
-        .sort((a,b) => b.v - a.v);
+    const initialOverallScore = averageRaw(Object.values(pillarScoresRaw));
 
-      const top = ranked[0];
-      const low = ranked[ranked.length - 1];
+    const earlierScenarioAverage = averageRaw(
+      JQ_V2_SCORING.earlierScenarioQuestions.map(qid => questionScores[qid])
+    );
 
-      const devStrength = top
+    const pressureScenarioAverage = averageRaw(
+      JQ_V2_SCORING.pressureScenarioQuestions.map(qid => questionScores[qid])
+    );
+
+    const stabilityDegradation = earlierScenarioAverage - pressureScenarioAverage;
+
+    let adjustedOverallScore = initialOverallScore;
+
+    const penalties = {
+      stabilityPenaltyApplied: false,
+      stabilityPenaltyValue: 0,
+      earlierScenarioAverage,
+      pressureScenarioAverage,
+      stabilityDegradation,
+      floorRulesApplied: []
+    };
+
+    if (stabilityDegradation >= JQ_V2_SCORING.penalty.stabilityThreshold) {
+      adjustedOverallScore -= JQ_V2_SCORING.penalty.stabilityPenaltyValue;
+      penalties.stabilityPenaltyApplied = true;
+      penalties.stabilityPenaltyValue = JQ_V2_SCORING.penalty.stabilityPenaltyValue;
+    }
+
+    adjustedOverallScore = clamp(adjustedOverallScore, 1, 5);
+
+    let bandNumber = bandFromScore(adjustedOverallScore);
+
+    JQ_V2_SCORING.floorRules.forEach(rule => {
+      const pillarValue = pillarScoresRaw[rule.pillar];
+
+      if (pillarValue < rule.threshold && bandNumber > rule.maxBand) {
+        bandNumber = rule.maxBand;
+
+        penalties.floorRulesApplied.push({
+          pillar: rule.pillar,
+          pillarScore: pillarValue,
+          threshold: rule.threshold,
+          maxBand: rule.maxBand,
+          reason: rule.reason
+        });
+      }
+    });
+
+    return {
+      overallScore: round1(adjustedOverallScore),
+      band: {
+        number: bandNumber,
+        label: bandLabelFromNumber(bandNumber)
+      },
+      pillarScores: roundObject1(pillarScoresRaw),
+      penalties: {
+        stabilityPenaltyApplied: penalties.stabilityPenaltyApplied,
+        stabilityPenaltyValue: penalties.stabilityPenaltyValue,
+        earlierScenarioAverage: round1(penalties.earlierScenarioAverage),
+        pressureScenarioAverage: round1(penalties.pressureScenarioAverage),
+        stabilityDegradation: round1(penalties.stabilityDegradation),
+        floorRulesApplied: penalties.floorRulesApplied.map(rule => ({
+          ...rule,
+          pillarScore: round1(rule.pillarScore)
+        }))
+      },
+      breakdown: {
+        questionScores: roundObject1(questionScores),
+        initialOverallScore: round1(initialOverallScore),
+        adjustedOverallScore: round1(adjustedOverallScore)
+      }
+    };
+  }
+
+  function buildDevelopmentNarrative_(result) {
+    const pillarOrder = ["discernment","synthesis","composure","prioritization","learning"];
+
+    const ranked = pillarOrder
+      .map(p => ({ p, v: result.pillarScores[p] }))
+      .filter(x => isFinite(x.v))
+      .sort((a,b) => b.v - a.v);
+
+    const top = ranked[0];
+    const low = ranked[ranked.length - 1];
+
+    return {
+      devStrength: top
         ? `Strength to leverage: Your ${PILLAR_LABEL[top.p]} suggests a reliable capability you can intentionally use as an anchor in complex situations.`
-        : "";
+        : "",
 
-      const devOpportunity = low
+      devOpportunity: low
         ? `Development opportunity: Strengthening ${PILLAR_LABEL[low.p]} may improve consistency, especially when signals conflict or pressure rises.`
-        : "";
+        : "",
 
-      const devReflectionPrompt =
-        `Reflection prompt: Think of a recent situation where pressure accelerated evaluation. What signal did you overweight, and what signal did you underweight?`;
+      devReflectionPrompt:
+        "Reflection prompt: Think of a recent situation where pressure accelerated evaluation. What signal did you overweight, and what signal did you underweight?"
+    };
+  }
 
-      submitToAppsScriptV2_(email, role, pillarScores, stability, overall, band, penaltyApplied, {
-        devStrength,
-        devOpportunity,
-        devReflectionPrompt
-      });
+  function showResults() {
+    if (!lastComputedResults) return;
+    renderResultsV2_(lastComputedResults);
+    showStandaloneResults();
+  }
 
-      lastComputedResults = { email, role, pillarScores, stability, overall, band, penaltyApplied };
-      showStandaloneCompleted();
-    }
+  function renderResultsV2_(r) {
+    const bandStrip = document.getElementById("bandStrip");
+    const pillarBars = document.getElementById("pillarBars");
+    const stabilityGrid = document.getElementById("stabilityGrid");
+    const narrativeText = document.getElementById("narrativeText");
+    const stabilityNote = document.getElementById("stabilityNote");
 
-    function bandFromOverall_(overall) {
-      if (!isFinite(overall)) return 1;
-      if (overall < 2.0) return 1;
-      if (overall >= 2.0 && overall <= 2.99) return 2;
-      if (overall >= 3.0 && overall <= 3.79) return 3;
-      if (overall >= 3.8 && overall <= 4.49) return 4;
-      if (overall >= 4.5) return 5;
-      return 1;
-    }
+    const labels = ["Fragile","Situational","Functional","Advanced","Expert"];
 
-    function showResults() {
-      if (!lastComputedResults) return;
-      renderResultsV2_(lastComputedResults);
-      showStandaloneResults();
-    }
+    bandStrip.innerHTML = `
+      <div style="font-weight:800; color:#222;">Overall Judgment Profile</div>
+      <div class="band-row">
+        ${labels.map((t, i) => `
+          <div class="band-cell ${((i + 1) === r.band.number) ? "active" : ""}">
+            ${t}
+          </div>
+        `).join("")}
+      </div>
+      <div class="note" style="margin:0;">
+        Your results indicate <strong>${r.band.label}</strong> Judgment Proficiency.
+      </div>
+    `;
 
-    function renderResultsV2_(r) {
-      const bandStrip = document.getElementById("bandStrip");
-      const pillarBars = document.getElementById("pillarBars");
-      const stabilityGrid = document.getElementById("stabilityGrid");
-      const narrativeText = document.getElementById("narrativeText");
+    pillarBars.innerHTML = "";
 
-      const labels = ["Fragile","Situational","Functional","Advanced","Expert"];
-      bandStrip.innerHTML = `
-        <div style="font-weight:800; color:#222;">Overall Judgment Profile</div>
-        <div class="band-row">
-          ${labels.map((t, i) => `<div class="band-cell ${((i+1)===r.band) ? "active" : ""}">${t}</div>`).join("")}
-        </div>
-        <div class="note" style="margin:0;">
-          Your results indicate <strong>${labels[r.band-1]}</strong> Judgment Proficiency.
-        </div>
-      `;
+    const pillarOrder = ["discernment","synthesis","composure","prioritization","learning"];
 
-      pillarBars.innerHTML = "";
-      const pillarOrder = ["discernment","synthesis","composure","prioritization","learning"];
-      pillarOrder.forEach(p => {
-        const v = r.pillarScores[p];
-        const pct = isFinite(v) ? Math.max(0, Math.min(100, (v / 5) * 100)) : 0;
-
-        const row = document.createElement("div");
-        row.className = "bar-row";
-        row.innerHTML = `
-          <div class="bar-label">${PILLAR_LABEL[p]}</div>
-          <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
-          <div class="bar-val">${format1(v)}</div>
-        `;
-        pillarBars.appendChild(row);
-      });
-
-      stabilityGrid.innerHTML = "";
-      const overallItem = document.createElement("div");
-      overallItem.className = "stability-item";
-      overallItem.innerHTML = `<strong>Overall evaluation</strong><span>${format1(r.overall)}</span>`;
-
-      const stressItem = document.createElement("div");
-      stressItem.className = "stability-item";
-      stressItem.innerHTML = `<strong>High pressure (Scenario 3)</strong><span>${format1(r.stability)}</span>`;
-
-      stabilityGrid.appendChild(overallItem);
-      stabilityGrid.appendChild(stressItem);
-
-      const ranked = pillarOrder
-        .map(p => ({ p, v: r.pillarScores[p] }))
-        .filter(x => isFinite(x.v))
-        .sort((a,b) => b.v - a.v);
-
-      const top2 = ranked.slice(0,2).map(x => `${PILLAR_LABEL[x.p]} (${format1(x.v)})`).join(", ");
-      const low2 = ranked.slice(-2).reverse().map(x => `${PILLAR_LABEL[x.p]} (${format1(x.v)})`).join(", ");
-
-      narrativeText.innerHTML = `
-        <p><strong>How you evaluate situations</strong><br>
-        This profile describes how you interpret competing signals and evaluate situations across three contexts.</p>
-
-        <p><strong>Where judgment is strongest</strong><br>
-        Strongest pillars: ${top2 || "n/a"}.</p>
-
-        <p><strong>Where evaluation may become vulnerable</strong><br>
-        Most vulnerable pillars: ${low2 || "n/a"}.</p>
-      `;
-    }
-
-    function submitToAppsScriptV2_(email, role, pillarScores, stability, overall, band, penaltyApplied, dev) {
-      const form = document.getElementById("submissionForm");
-      if (!form) return;
-
-      document.getElementById("formEmail").value = email || "";
-      document.getElementById("formRole").value = role || "";
-
-      document.getElementById("formDiscernment").value = format1(pillarScores.discernment);
-      document.getElementById("formSynthesis").value = format1(pillarScores.synthesis);
-      document.getElementById("formComposure").value = format1(pillarScores.composure);
-      document.getElementById("formPrioritization").value = format1(pillarScores.prioritization);
-      document.getElementById("formLearning").value = format1(pillarScores.learning);
-
-      document.getElementById("formJudgmentStability").value = format1(stability);
-      document.getElementById("formOverallJqScore").value = format1(overall);
-      document.getElementById("formBand").value = `Band ${band}`;
-      document.getElementById("formStabilityPenaltyApplied").value = penaltyApplied;
-
-      const endMs = Date.now();
-      document.getElementById("formStartMs").value = assessmentStartMs ? String(assessmentStartMs) : "";
-      document.getElementById("formEndMs").value = String(endMs);
-      document.getElementById("formDurationSec").value =
-        assessmentStartMs ? String(Math.round((endMs - assessmentStartMs) / 1000)) : "";
-
-      // NEW: question-level scores
-      for (let i = 1; i <= 15; i++) {
-        const qid = `Q${i}`;
-        const ans = answers[qid];
-        const score = ans && isFinite(Number(ans.score)) ? format1(Number(ans.score)) : "";
-        const el = document.getElementById(`formQ${i}Score`);
-        if (el) el.value = score;
-      }
-
-      // NEW: composite details
-      const q3Meta = (answers.Q3 && answers.Q3.meta) ? answers.Q3.meta : {};
-      const q8Meta = (answers.Q8 && answers.Q8.meta) ? answers.Q8.meta : {};
-
-      document.getElementById("formQ3Likert").value = q3Meta.likert != null ? String(q3Meta.likert) : "";
-      document.getElementById("formQ3Interpretation").value = q3Meta.interpretation || "";
-      document.getElementById("formQ8Likert").value = q8Meta.likert != null ? String(q8Meta.likert) : "";
-      document.getElementById("formQ8Interpretation").value = q8Meta.interpretation || "";
-
-      document.getElementById("formDevStrength").value = (dev && dev.devStrength) ? dev.devStrength : "";
-      document.getElementById("formDevOpportunity").value = (dev && dev.devOpportunity) ? dev.devOpportunity : "";
-      document.getElementById("formDevReflectionPrompt").value = (dev && dev.devReflectionPrompt) ? dev.devReflectionPrompt : "";
-
-      form.submit();
-    }
-
-    function validateEmail(email) {
-      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-    }
-
-    function average(arr) {
-      const nums = (arr || []).filter(v => typeof v === "number" && isFinite(v));
-      if (nums.length === 0) return NaN;
-      return nums.reduce((a,b) => a + b, 0) / nums.length;
-    }
-
-    function format1(val) {
-      if (!isFinite(val)) return "n/a";
-      return (Math.round(val * 10) / 10).toFixed(1);
-    }
-
-    function openShareModal() {
-      const overlay = document.getElementById("shareModalOverlay");
-      const wrap = document.getElementById("shareRecipientsWrap");
-      wrap.innerHTML = "";
-      addShareRecipientRow_(true);
-
-      overlay.style.display = "flex";
-      setTimeout(() => {
-        const firstRole = wrap.querySelector('input[data-field="role"]');
-        if (firstRole) firstRole.focus();
-      }, 0);
-    }
-
-    function closeShareModal() {
-      document.getElementById("shareModalOverlay").style.display = "none";
-    }
-
-    function addShareRecipientRow_(isFirst) {
-      const wrap = document.getElementById("shareRecipientsWrap");
-
-      if (wrap.children.length >= 3) {
-        alert("You can add a maximum of 3 recipients.");
-        return;
-      }
-
-      const idx = wrap.children.length + 1;
+    pillarOrder.forEach(p => {
+      const v = r.pillarScores[p];
+      const pct = isFinite(v) ? Math.max(0, Math.min(100, (v / 5) * 100)) : 0;
 
       const row = document.createElement("div");
-      row.className = "share-row";
-
-      const top = document.createElement("div");
-      top.className = "share-row-top";
-      top.innerHTML = `
-        <div class="share-row-title">Recipient ${idx}</div>
-        ${isFirst ? "" : `<button class="share-remove" type="button" onclick="removeShareRecipientRow(this)">Remove</button>`}
+      row.className = "bar-row";
+      row.innerHTML = `
+        <div class="bar-label">${PILLAR_LABEL[p]}</div>
+        <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
+        <div class="bar-val">${format1(v)}</div>
       `;
+      pillarBars.appendChild(row);
+    });
 
-      const grid = document.createElement("div");
-      grid.className = "share-grid";
-      grid.innerHTML = `
-        <div>
-          <label>Recipient role / title</label>
-          <input type="text" data-field="role" placeholder="e.g., VP Operations, Director, GM" />
-        </div>
-        <div>
-          <label>Recipient email</label>
-          <input type="email" data-field="email" placeholder="name@company.com" />
-        </div>
-      `;
+    stabilityGrid.innerHTML = "";
 
-      row.appendChild(top);
-      row.appendChild(grid);
-      wrap.appendChild(row);
+    stabilityGrid.innerHTML = `
+      <div class="stability-item">
+        <strong>Overall evaluation</strong>
+        <span>${format1(r.overallScore)}</span>
+      </div>
+      <div class="stability-item">
+        <strong>Scenario 1 + 2 average</strong>
+        <span>${format1(r.penalties.earlierScenarioAverage)}</span>
+      </div>
+      <div class="stability-item">
+        <strong>Scenario 3 pressure average</strong>
+        <span>${format1(r.penalties.pressureScenarioAverage)}</span>
+      </div>
+      <div class="stability-item">
+        <strong>Pressure degradation</strong>
+        <span>${format1(r.penalties.stabilityDegradation)}</span>
+      </div>
+      <div class="stability-item">
+        <strong>Stability penalty applied</strong>
+        <span>${r.penalties.stabilityPenaltyApplied ? "Yes" : "No"}</span>
+      </div>
+    `;
+
+    if (stabilityNote) {
+      stabilityNote.style.display = "block";
+      stabilityNote.textContent = r.penalties.stabilityPenaltyApplied
+        ? "A stability penalty was applied because the Scenario 3 pressure score dropped by 0.6 or more compared with earlier scenarios."
+        : "No stability penalty was applied because pressure-condition degradation stayed below 0.6.";
     }
 
-    function addShareRecipientRow() { addShareRecipientRow_(false); }
+    const ranked = pillarOrder
+      .map(p => ({ p, v: r.pillarScores[p] }))
+      .filter(x => isFinite(x.v))
+      .sort((a,b) => b.v - a.v);
 
-    function removeShareRecipientRow(btn) {
-      const row = btn.closest(".share-row");
-      if (row) row.remove();
+    const top2 = ranked.slice(0,2).map(x => `${PILLAR_LABEL[x.p]} (${format1(x.v)})`).join(", ");
+    const low2 = ranked.slice(-2).reverse().map(x => `${PILLAR_LABEL[x.p]} (${format1(x.v)})`).join(", ");
 
-      const wrap = document.getElementById("shareRecipientsWrap");
-      Array.from(wrap.children).forEach((child, i) => {
-        const title = child.querySelector(".share-row-title");
-        if (title) title.textContent = `Recipient ${i + 1}`;
-      });
+    const floorText = r.penalties.floorRulesApplied.length
+      ? `<p><strong>Band constraint applied</strong><br>${r.penalties.floorRulesApplied.map(rule => rule.reason).join("<br>")}</p>`
+      : "";
+
+    narrativeText.innerHTML = `
+      <p><strong>How you evaluate situations</strong><br>
+      This profile describes how you interpret competing signals and evaluate situations across three contexts.</p>
+
+      <p><strong>Where judgment is strongest</strong><br>
+      Strongest pillars: ${top2 || "n/a"}.</p>
+
+      <p><strong>Where evaluation may become vulnerable</strong><br>
+      Most vulnerable pillars: ${low2 || "n/a"}.</p>
+
+      ${floorText}
+    `;
+  }
+
+  function submitToAppsScriptV2_(email, role, result, dev) {
+    const form = document.getElementById("submissionForm");
+    if (!form) return;
+
+    document.getElementById("formEmail").value = email || "";
+    document.getElementById("formRole").value = role || "";
+
+    document.getElementById("formDiscernment").value = format1(result.pillarScores.discernment);
+    document.getElementById("formSynthesis").value = format1(result.pillarScores.synthesis);
+    document.getElementById("formComposure").value = format1(result.pillarScores.composure);
+    document.getElementById("formPrioritization").value = format1(result.pillarScores.prioritization);
+    document.getElementById("formLearning").value = format1(result.pillarScores.learning);
+
+    document.getElementById("formJudgmentStability").value = format1(result.penalties.pressureScenarioAverage);
+    document.getElementById("formOverallJqScore").value = format1(result.overallScore);
+    document.getElementById("formBand").value = `Band ${result.band.number}`;
+    document.getElementById("formStabilityPenaltyApplied").value =
+      result.penalties.stabilityPenaltyApplied ? "Yes" : "No";
+
+    const endMs = Date.now();
+
+    document.getElementById("formStartMs").value =
+      assessmentStartMs ? String(assessmentStartMs) : "";
+
+    document.getElementById("formEndMs").value = String(endMs);
+
+    document.getElementById("formDurationSec").value =
+      assessmentStartMs ? String(Math.round((endMs - assessmentStartMs) / 1000)) : "";
+
+    for (let i = 1; i <= 15; i++) {
+      const qid = `Q${i}`;
+      const score = result.breakdown.questionScores[qid];
+      const el = document.getElementById(`formQ${i}Score`);
+      if (el) el.value = format1(score);
     }
 
-    function logShareAndShareLink() {
-      if (!assessmentEmail || !validateEmail(assessmentEmail)) {
-        alert("Your email is missing. Please complete the assessment first.");
-        closeShareModal();
-        return;
-      }
+    const q3Meta = answers.Q3 && answers.Q3.meta ? answers.Q3.meta : {};
+    const q8Meta = answers.Q8 && answers.Q8.meta ? answers.Q8.meta : {};
 
-      const wrap = document.getElementById("shareRecipientsWrap");
-      const rows = Array.from(wrap.querySelectorAll(".share-row"));
+    document.getElementById("formQ3Likert").value =
+      q3Meta.likert != null ? String(q3Meta.likert) : "";
 
-      if (rows.length === 0) {
-        alert("Please add at least one recipient.");
-        return;
-      }
-      if (rows.length > 3) {
-        alert("Please keep recipients to a maximum of 3.");
-        return;
-      }
+    document.getElementById("formQ3Interpretation").value =
+      q3Meta.interpretation || "";
 
-      const entries = [];
-      for (const r of rows) {
-        const roleInput = r.querySelector('input[data-field="role"]');
-        const emailInput = r.querySelector('input[data-field="email"]');
-        const role = (roleInput ? roleInput.value : "").trim();
-        const email = (emailInput ? emailInput.value : "").trim();
+    document.getElementById("formQ8Likert").value =
+      q8Meta.likert != null ? String(q8Meta.likert) : "";
 
-        if (!role) { alert("Please enter a role/title for every recipient."); if (roleInput) roleInput.focus(); return; }
-        if (!email || !validateEmail(email)) { alert("Please enter a valid email for every recipient."); if (emailInput) emailInput.focus(); return; }
+    document.getElementById("formQ8Interpretation").value =
+      q8Meta.interpretation || "";
 
-        entries.push({ role, email });
-      }
+    document.getElementById("formDevStrength").value = dev.devStrength || "";
+    document.getElementById("formDevOpportunity").value = dev.devOpportunity || "";
+    document.getElementById("formDevReflectionPrompt").value = dev.devReflectionPrompt || "";
 
+    form.submit();
+  }
+
+  function validateEmail(email) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  }
+
+  function averageRaw(values) {
+    const nums = (values || []).filter(v => typeof v === "number" && isFinite(v));
+    if (!nums.length) return NaN;
+    return nums.reduce((a,b) => a + b, 0) / nums.length;
+  }
+
+  function round1(value) {
+    if (!isFinite(value)) return null;
+    return Math.round(value * 10) / 10;
+  }
+
+  function roundObject1(obj) {
+    const out = {};
+    Object.keys(obj).forEach(key => {
+      out[key] = round1(obj[key]);
+    });
+    return out;
+  }
+
+  function clamp(value, min, max) {
+    return Math.max(min, Math.min(max, value));
+  }
+
+  function bandFromScore(score) {
+    if (!isFinite(score)) return 1;
+    if (score < 2.0) return 1;
+    if (score < 3.0) return 2;
+    if (score < 3.8) return 3;
+    if (score < 4.5) return 4;
+    return 5;
+  }
+
+  function bandLabelFromNumber(band) {
+    const labels = {
+      1: "Fragile",
+      2: "Situational",
+      3: "Functional",
+      4: "Advanced",
+      5: "Expert"
+    };
+
+    return labels[band] || "Unknown";
+  }
+
+  function format1(val) {
+    const n = Number(val);
+    if (!isFinite(n)) return "n/a";
+    return (Math.round(n * 10) / 10).toFixed(1);
+  }
+
+  function openShareModal() {
+    const overlay = document.getElementById("shareModalOverlay");
+    const wrap = document.getElementById("shareRecipientsWrap");
+
+    wrap.innerHTML = "";
+    addShareRecipientRow_(true);
+
+    overlay.style.display = "flex";
+
+    setTimeout(() => {
+      const firstRole = wrap.querySelector('input[data-field="role"]');
+      if (firstRole) firstRole.focus();
+    }, 0);
+  }
+
+  function closeShareModal() {
+    document.getElementById("shareModalOverlay").style.display = "none";
+  }
+
+  function addShareRecipientRow_(isFirst) {
+    const wrap = document.getElementById("shareRecipientsWrap");
+
+    if (wrap.children.length >= 3) {
+      alert("You can add a maximum of 3 recipients.");
+      return;
+    }
+
+    const idx = wrap.children.length + 1;
+
+    const row = document.createElement("div");
+    row.className = "share-row";
+
+    const top = document.createElement("div");
+    top.className = "share-row-top";
+    top.innerHTML = `
+      <div class="share-row-title">Recipient ${idx}</div>
+      ${isFirst ? "" : `<button class="share-remove" type="button" onclick="removeShareRecipientRow(this)">Remove</button>`}
+    `;
+
+    const grid = document.createElement("div");
+    grid.className = "share-grid";
+    grid.innerHTML = `
+      <div>
+        <label>Recipient role / title</label>
+        <input type="text" data-field="role" placeholder="e.g., VP Operations, Director, GM" />
+      </div>
+      <div>
+        <label>Recipient email</label>
+        <input type="email" data-field="email" placeholder="name@company.com" />
+      </div>
+    `;
+
+    row.appendChild(top);
+    row.appendChild(grid);
+    wrap.appendChild(row);
+  }
+
+  function addShareRecipientRow() {
+    addShareRecipientRow_(false);
+  }
+
+  function removeShareRecipientRow(btn) {
+    const row = btn.closest(".share-row");
+    if (row) row.remove();
+
+    const wrap = document.getElementById("shareRecipientsWrap");
+
+    Array.from(wrap.children).forEach((child, i) => {
+      const title = child.querySelector(".share-row-title");
+      if (title) title.textContent = `Recipient ${i + 1}`;
+    });
+  }
+
+  function logShareAndShareLink() {
+    if (!assessmentEmail || !validateEmail(assessmentEmail)) {
+      alert("Your email is missing. Please complete the assessment first.");
       closeShareModal();
-
-      submitShareEntriesSequentially_(entries, 0, () => {
-        openEmailComposer_(entries);
-      });
+      return;
     }
 
-    function submitShareEntriesSequentially_(entries, idx, doneCb) {
-      if (idx >= entries.length) {
-        if (typeof doneCb === "function") doneCb();
+    const wrap = document.getElementById("shareRecipientsWrap");
+    const rows = Array.from(wrap.querySelectorAll(".share-row"));
+
+    if (rows.length === 0) {
+      alert("Please add at least one recipient.");
+      return;
+    }
+
+    if (rows.length > 3) {
+      alert("Please keep recipients to a maximum of 3.");
+      return;
+    }
+
+    const entries = [];
+
+    for (const r of rows) {
+      const roleInput = r.querySelector('input[data-field="role"]');
+      const emailInput = r.querySelector('input[data-field="email"]');
+
+      const role = (roleInput ? roleInput.value : "").trim();
+      const email = (emailInput ? emailInput.value : "").trim();
+
+      if (!role) {
+        alert("Please enter a role/title for every recipient.");
+        if (roleInput) roleInput.focus();
         return;
       }
 
-      const entry = entries[idx];
-      const form = document.getElementById("shareForm");
+      if (!email || !validateEmail(email)) {
+        alert("Please enter a valid email for every recipient.");
+        if (emailInput) emailInput.focus();
+        return;
+      }
 
-      document.getElementById("shareSenderEmail").value = assessmentEmail;
-      document.getElementById("shareRecipientRole").value = entry.role;
-      document.getElementById("shareRecipientEmail").value = entry.email;
-
-      form.submit();
-      setTimeout(() => submitShareEntriesSequentially_(entries, idx + 1, doneCb), 250);
+      entries.push({ role, email });
     }
 
-    function openEmailComposer_(entries) {
-      const baseUrl = window.location.href.split("?")[0];
-      const shareUrl = baseUrl;
+    closeShareModal();
 
-      const to = entries.map(e => e.email).join(",");
-      const subject = "JQ Assessment – Please take this";
-      const bodyLines = [
-        "Hi,",
-        "",
-        "I took a Judgment Quotient (JQ) assessment to understand how I evaluate complex situations.",
-        "",
-        "To get a fuller view of our team’s judgment capability, I’m inviting you to complete this short assessment:",
-        shareUrl,
-        "",
-        "Thank you."
-      ];
+    submitShareEntriesSequentially_(entries, 0, () => {
+      openEmailComposer_(entries);
+    });
+  }
 
-      const mailto = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyLines.join("\n"))}`;
-      window.location.href = mailto;
+  function submitShareEntriesSequentially_(entries, idx, doneCb) {
+    if (idx >= entries.length) {
+      if (typeof doneCb === "function") doneCb();
+      return;
     }
 
-    function openKrishnaBooking() {
-      window.open("https://cal.com/krishnapendyala", "_blank", "noopener,noreferrer");
-    }
+    const entry = entries[idx];
+    const form = document.getElementById("shareForm");
 
-    function printPage() { window.print(); }
-  </script>
+    document.getElementById("shareSenderEmail").value = assessmentEmail;
+    document.getElementById("shareRecipientRole").value = entry.role;
+    document.getElementById("shareRecipientEmail").value = entry.email;
+
+    form.submit();
+
+    setTimeout(() => {
+      submitShareEntriesSequentially_(entries, idx + 1, doneCb);
+    }, 250);
+  }
+
+  function openEmailComposer_(entries) {
+    const baseUrl = window.location.href.split("?")[0];
+    const shareUrl = baseUrl;
+
+    const to = entries.map(e => e.email).join(",");
+    const subject = "JQ Assessment – Please take this";
+
+    const bodyLines = [
+      "Hi,",
+      "",
+      "I took a Judgment Quotient (JQ) assessment to understand how I evaluate complex situations.",
+      "",
+      "To get a fuller view of our team’s judgment capability, I’m inviting you to complete this short assessment:",
+      shareUrl,
+      "",
+      "Thank you."
+    ];
+
+    const mailto =
+      `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyLines.join("\n"))}`;
+
+    window.location.href = mailto;
+  }
+
+  function openKrishnaBooking() {
+    window.open("https://cal.com/krishnapendyala", "_blank", "noopener,noreferrer");
+  }
+
+  function printPage() {
+    window.print();
+  }
+</script>
 
 </body>
 </html>
